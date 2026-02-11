@@ -523,9 +523,13 @@
       renderCategories(items);
       const status = await loadFeedStatus();
       if (status && report){
-        report.textContent = `Ultimo Aggiornamento: ${status.updated_at || status.updatedAt || '—'}`;
+        const dt = status.generated_at
+          ? String(status.generated_at).replace('T', ' ')
+          : (status.updated_at || status.updatedAt || '');
+        const cnt = (status.count != null) ? formatInt(status.count) : formatInt(items.length);
+        report.textContent = `Ultimo aggiornamento: articoli in feed = ${cnt} (letto da JSON${dt ? ', ' + dt + ' UTC' : ''})`;
       } else if (report){
-        report.textContent = 'Ultimo Aggiornamento: —';
+        report.textContent = 'Ultimo aggiornamento: —';
       }
     }
 

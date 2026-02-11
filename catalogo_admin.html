@@ -431,7 +431,7 @@
       if (status && (status.generated_at || status.count)) {
         const dt = status.generated_at ? String(status.generated_at).replace('T', ' ') : '';
         const cnt = status.count != null ? formatInt(status.count) : formatInt(total);
-        setReportLine(`Ultimo aggiornamento: articoli in feed = ${cnt} // ${dt ? 'in data ' + dt : ''}`);
+        setReportLine(`Ultimo aggiornamento: articoli in feed = ${cnt} (letto da JSON${dt ? ', ' + dt + ' UTC' : ''})`);
       } else {
         // fallback: solo totale
         setReportLine(`Ultimo aggiornamento: articoli in feed = ${formatInt(total)} (letto da ${source.toUpperCase()})`);

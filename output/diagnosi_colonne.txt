@@ -1,5 +1,0 @@
-ItemBase: dbweb CSV_ITAPROD10000024_ItemBase.csv
-ItemCode col: AX item number
-Descr col (chosen): PIM description 1 (italian)
-MacroCategoria col (level1 Group name): Group name
-KEEP_MODE: GE soglia=5
