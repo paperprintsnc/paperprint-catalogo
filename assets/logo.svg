@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="42" viewBox="0 0 160 42" fill="none">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1">
+      <stop offset="0" stop-color="#2b6ef6" />
+      <stop offset="1" stop-color="#0ea5a4" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="42" height="42" rx="8" fill="url(#g)" />
+  <g transform="translate(52,26)" fill="#0b1220" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">
+    <text x="0" y="0">PaperPrint</text>
+  </g>
+</svg>

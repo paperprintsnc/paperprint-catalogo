@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login Amministratore - PaperPrint CRM</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js"></script>
+</head>
+<body>
+  <main class="container auth-card">
+    <div class="logo"><img src="assets/logo.png" alt="PaperPrint" onerror="this.onerror=null;this.src='assets/logo.svg'"></div>
+    <h1>Login Amministratore</h1>
+
+    <form id="admin-login-form" class="form" autocomplete="off">
+      <input id="admin-email" type="email" placeholder="Email" required>
+      <input id="admin-password" type="password" placeholder="Password" required>
+
+      <div style="display:flex;gap:8px;align-items:center"> 
+        <button id="admin-submit-btn" class="btn" type="submit">Accedi</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <input id="admin-remember" type="checkbox" style="width:16px;height:16px"> <label for="admin-remember">Ricorda credenziali su questo dispositivo</label>
+      </div>
+
+      <div class="form-feedback" id="admin-feedback" hidden>
+        <div class="spinner"></div>
+        <span class="status"></span>
+      </div>
+
+      <p id="admin-error" class="error" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://fyddanuilbuwndeeihqw.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_xlF4ZQlghw2AVgHPrYpGtA_p-msJmr0";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById('admin-login-form');
+    const emailEl = document.getElementById('admin-email');
+    const passEl = document.getElementById('admin-password');
+    const btn = document.getElementById('admin-submit-btn');
+    const errorEl = document.getElementById('admin-error');
+    const feedback = document.getElementById('admin-feedback');
+    const statusEl = feedback.querySelector('.status');
+    const rememberEl = document.getElementById('admin-remember');
+
+    function setLoading(isLoading, msg) {
+      feedback.hidden = !isLoading;
+      statusEl.textContent = msg || '';
+      btn.disabled = !!isLoading;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+
+      const email = (emailEl.value || '').trim();
+      const password = passEl.value || '';
+
+      setLoading(true, 'Accesso in corso...');
+
+      try {
+        const { data: signInData, error: signInError } = await sb.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+
+        const { data: userData, error: userErr } = await sb.auth.getUser();
+        if (userErr) throw userErr;
+
+        const user = userData?.user;
+        if (!user) throw new Error('Non autorizzato.');
+
+        const { data: profile, error: profileError } = await sb
+          .from('profiles')
+          .select('role, is_active')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile) {
+          try { await sb.auth.signOut(); } catch (_) {}
+          throw new Error('Non autorizzato.');
+        }
+
+        if (profile.is_active === false) {
+          try { await sb.auth.signOut(); } catch (_) {}
+          throw new Error("Utente disattivato. Contatta l'amministratore.");
+        }
+
+        if (profile.role !== 'admin') {
+          try { await sb.auth.signOut(); } catch (_) {}
+          throw new Error('Credenziali valide per Cliente, non hai i diritti alla LOGIN AMMINISTRATORE.');
+        }
+
+        // Dopo login admin: preleviamo la lista clienti e la salviamo in localStorage
+        async function cacheClients(){
+          try{
+            const { data: clients, error: clientsErr } = await sb
+              .from('profiles')
+              .select('id,full_name,name,email,role,is_active')
+              .eq('role','client')
+              .eq('is_active', true);
+            if (!clientsErr && Array.isArray(clients)){
+              const mapped = clients.map(c => ({ id: c.id, name: c.full_name || c.name || c.email || c.id }));
+              try{ localStorage.setItem('pp_clients', JSON.stringify(mapped)); }catch(e){}
+            }
+          }catch(e){ /* ignore caching errors */ }
+        }
+
+        try{ await cacheClients(); }catch(e){}
+
+        // se l'utente ha richiesto di ricordare le credenziali, salviamole in localStorage
+        try{
+          if (rememberEl && rememberEl.checked){
+            localStorage.setItem('pp_admin_creds', JSON.stringify({ email: email, password: password }));
+          } else {
+            localStorage.removeItem('pp_admin_creds');
+          }
+        }catch(e){ console.warn('Unable to persist admin creds', e); }
+        window.location.href = 'admin.html';
+      } catch (err) {
+        errorEl.textContent = err?.message || 'Errore di accesso.';
+      } finally {
+        setLoading(false);
+      }
+    });
+
+  
+
+  // Populate saved credentials if present
+  try{
+    const raw = localStorage.getItem('pp_admin_creds');
+    if (raw){
+      const obj = JSON.parse(raw);
+      if (obj && obj.email){ emailEl.value = obj.email; }
+      if (obj && obj.password){ passEl.value = obj.password; }
+      if (rememberEl) rememberEl.checked = true;
+    }
+  }catch(e){ /* ignore parse errors */ }
+  </script>
+</body>
+</html>

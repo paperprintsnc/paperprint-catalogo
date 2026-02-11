@@ -1,0 +1,5 @@
+FILE: esempio ricarichi2026.xlsx
+FOGLI: ['Foglio1']
+
+[Foglio1] colonne_utili=2 -> coppie=1
+  - coppia 0/1: match=16

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ordini Confermati - Admin</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js"></script>
+  <style>
+    body{height:100vh;overflow:hidden}
+    .container{max-width:1200px;margin:0 auto;padding:0 18px}
+
+    /* Fixed header + fixed column band */
+    .site-header{position:fixed;top:0;left:0;right:0;z-index:1100;background:#fff;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+    .site-header .header-inner{max-width:1200px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+    .brand img{width:56px;height:56px;border-radius:12px;object-fit:contain;background:#fff}
+    .brand .brand-text{font-size:20px;color:#0b5cff;font-weight:900;letter-spacing:.2px}
+    .header-actions{display:flex;align-items:center;gap:12px}
+
+    .header-bottom{position:fixed;top:var(--orders-header-h, 72px);left:0;right:0;z-index:1095;background:#fff;border-top:1px solid rgba(11,20,40,0.03);box-shadow:0 6px 18px rgba(2,6,23,0.04)}
+    .header-bottom .container{padding:6px 18px}
+    .header-bottom .table-headers{overflow:hidden;padding-right:var(--orders-body-scrollbar-w, 0px)}
+    .header-bottom table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:1rem;min-width:0}
+    .header-bottom th{padding:10px 8px;font-weight:900;color:#0b1220;text-align:left;background:transparent;border-bottom:none}
+    .header-bottom th:last-child{text-align:right}
+    /* Forza allineamento: Data / Totale / Stato a sinistra */
+    .header-bottom th:nth-child(3),
+    .header-bottom th:nth-child(4),
+    .header-bottom th:nth-child(5){text-align:left}
+
+    /* Scrollable body */
+    main{position:fixed;top:calc(var(--orders-header-h, 72px) + var(--orders-cols-h, 54px));left:0;right:0;bottom:0}
+    .page-body{height:100%;padding:0}
+    .table-responsive{height:100%;overflow-y:auto;overflow-x:hidden}
+
+    table{width:100%;border-collapse:collapse;table-layout:fixed}
+    td{padding:10px 8px;border-bottom:1px solid rgba(15,23,42,.06);text-align:left;vertical-align:middle}
+    td:last-child{text-align:right;white-space:nowrap}
+    /* Forza allineamento: Data / Totale / Stato a sinistra */
+    #ordersTable td:nth-child(3),
+    #ordersTable td:nth-child(4),
+    #ordersTable td:nth-child(5){text-align:left}
+    tbody tr:nth-child(odd) td{background:#ffffff}
+    tbody tr:nth-child(even) td{background:#f1f5f9}
+
+    /* Troncamenti per evitare overlap */
+    td:nth-child(1), td:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    td:nth-child(3), td:nth-child(4), td:nth-child(5){white-space:nowrap}
+    /* "Blindatura" Cliente: se contiene stringhe lunghissime non rompe layout */
+    td:nth-child(1){max-width:0}
+
+    /* Mobile: torna scroll normale */
+    @media (max-width: 980px){
+      body{height:auto;overflow:auto}
+      .site-header{position:sticky}
+      .header-bottom{position:sticky;top:0}
+      main{position:static}
+      .table-responsive{height:auto;overflow:auto}
+      .header-bottom .table-headers{overflow:auto;padding-right:0}
+    }
+
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid rgba(15,23,42,.08);background:#fff;cursor:pointer}
+    .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+    .order-detail{white-space:pre-wrap;font-family:monospace;font-size:13px}
+    .modal-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:12000}
+    .modal-box{background:#fff;padding:16px;border-radius:12px;max-width:900px;width:96%;max-height:80vh;overflow:auto}
+  </style>
+</head>
+<body id="page-orders-admin">
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="admin.html" aria-label="Torna alla Dashboard Admin">
+        <img src="assets/logo.png" alt="PaperPrint" onerror="this.onerror=null;this.src='assets/logo.svg'">
+        <span class="brand-text">Ordini Confermati</span>
+      </a>
+      <div class="header-actions">
+        <a href="admin.html" class="btn-orders" style="background:#16a34a;padding:8px 12px;border-radius:10px;text-decoration:none;color:#fff;">← Torna a Admin</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="header-bottom">
+    <div class="container">
+      <div class="table-headers" id="orders-head-scroll">
+        <table aria-hidden="true">
+          <colgroup>
+            <col style="width:43%">
+            <col style="width:10%">
+            <col style="width:24%">
+            <col style="width:20%">
+            <col style="width:18%">
+            <col style="width:10%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Ordine N°</th>
+              <th>Data</th>
+              <th>Totale €</th>
+              <th>Stato</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div class="container page-body">
+      <div class="muted" id="ordersSubtitle" style="padding:10px 0 8px">Archivio degli ordini confermati</div>
+      <div id="orders-body-scroll" class="table-responsive">
+        <table id="ordersTable">
+          <colgroup>
+            <col style="width:46%">
+            <col style="width:8%">
+            <col style="width:24%">
+            <col style="width:20%">
+            <col style="width:18%">
+            <col style="width:11%">
+          </colgroup>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="orderModal" class="modal-overlay" role="dialog" aria-hidden="true">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h3 id="omTitle">Ordine</h3><div><button id="omRestore" class="btn">Ripristina nel carrello</button> <button id="omClose" class="btn">Chiudi</button></div></div>
+      <div id="omBody" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const ORD_KEY = 'pp_orders_confirmed_v1'; // fallback storico
+
+      const params = new URLSearchParams(location.search);
+      const filterClientId = params.get('client_id') || '';
+
+      const sb = (window.__pp_supabase_client)
+        ? window.__pp_supabase_client
+        : window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+      let currentOrders = [];
+
+      const esc = (s) => String(s ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
+      function eur(v){
+        const n = Number(String(v ?? '').replace(',', '.'));
+        if (!isFinite(n)) return '—';
+        return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+
+      async function guardAdmin(){
+        const { data: userData } = await sb.auth.getUser();
+        const user = userData?.user;
+        if (!user) {
+          window.location.href = 'admin-login.html';
+          return false;
+        }
+        const { data: me } = await sb.from('profiles').select('role,is_active').eq('id', user.id).single();
+        if (!me || me.is_active === false || me.role !== 'admin') {
+          try{ await sb.auth.signOut(); }catch(_){ }
+          window.location.href = 'index.html';
+          return false;
+        }
+        return true;
+      }
+
+      function orderStatus(o){
+        const raw = (o && (o.status ?? o.stato)) ? String(o.status ?? o.stato).trim() : '';
+        if (raw) return raw;
+        const transmitted = (o && (o.transmitted === true || o.trasmesso === true || o.sent === true));
+        const transmittedAt = (o && (o.transmitted_at || o.trasmesso_at || o.sent_at));
+        if (transmitted || transmittedAt) return 'Trasmesso';
+        return 'In Elaborazione';
+      }
+
+      function loadOrdersFallback(){
+        try{ return JSON.parse(localStorage.getItem(ORD_KEY) || '[]'); }catch(_){ return []; }
+      }
+
+      async function loadOrdersFromSupabase(){
+        let q = sb
+          .from('orders_confirmed')
+          .select('id, order_no, created_at, client_id, client_name, client_email, total, items, status, transmitted, transmitted_at')
+          .order('created_at', { ascending: false })
+          .limit(500);
+        if (filterClientId) q = q.eq('client_id', filterClientId);
+
+        const { data, error } = await q;
+        if (error) throw error;
+        return Array.isArray(data) ? data : [];
+      }
+
+      function render(){
+        const orders = currentOrders;
+        const tbody = document.querySelector('#ordersTable tbody'); tbody.innerHTML='';
+        for(const o of orders){
+          const tr = document.createElement('tr');
+          const dt = new Date(o.created_at || o.date || '');
+          const clientName = String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
+          const orderNo = (o.order_no != null && o.order_no !== '') ? String(o.order_no).padStart(6,'0') : String(o.number || o.id || '');
+          const totalText = (o.total != null && o.total !== '') ? eur(o.total) : '—';
+          const dateText = dt && !isNaN(dt.getTime()) ? dt.toLocaleString() : '';
+          const statusText = orderStatus(o);
+
+          tr.innerHTML = `
+            <td title="${esc(clientName)}">${esc(clientName)}</td>
+            <td title="${esc(orderNo)}">${esc(orderNo)}</td>
+            <td>${esc(dateText)}</td>
+            <td>${esc(totalText)}</td>
+            <td title="${esc(statusText)}">${esc(statusText)}</td>
+            <td><button class="btn" data-id="${esc(o.id)}" data-action="view">Consulta</button></td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      // Keep fixed header + fixed column band perfectly spaced
+      (function(){
+        const body = document.body;
+        const siteHeader = document.querySelector('.site-header');
+        const headerBottom = document.querySelector('.header-bottom');
+        const bodyScroll = document.getElementById('orders-body-scroll');
+        if (!body || !siteHeader || !headerBottom) return;
+
+        const applyLayoutVars = ()=>{
+          const headerH = Math.round(siteHeader.getBoundingClientRect().height);
+          const colsH = Math.round(headerBottom.getBoundingClientRect().height);
+          body.style.setProperty('--orders-header-h', `${headerH}px`);
+          body.style.setProperty('--orders-cols-h', `${colsH}px`);
+          if (bodyScroll){
+            const sbw = Math.max(0, bodyScroll.offsetWidth - bodyScroll.clientWidth);
+            body.style.setProperty('--orders-body-scrollbar-w', `${sbw}px`);
+          }
+        };
+
+        requestAnimationFrame(applyLayoutVars);
+        setTimeout(applyLayoutVars, 50);
+        setTimeout(applyLayoutVars, 250);
+        window.addEventListener('resize', applyLayoutVars);
+      })();
+
+      // Sync horizontal scroll: fixed column headers <-> table body (kept safe)
+      (function(){
+        const headScroll = document.getElementById('orders-head-scroll');
+        const bodyScroll = document.getElementById('orders-body-scroll');
+        if (!headScroll || !bodyScroll) return;
+        let syncing = false;
+        const sync = (from, to) => () => {
+          if (syncing) return;
+          syncing = true;
+          to.scrollLeft = from.scrollLeft;
+          syncing = false;
+        };
+        bodyScroll.addEventListener('scroll', sync(bodyScroll, headScroll), { passive: true });
+        headScroll.addEventListener('scroll', sync(headScroll, bodyScroll), { passive: true });
+      })();
+
+      document.addEventListener('click', (ev)=>{
+        const btn = ev.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        if (btn.getAttribute('data-action') === 'view'){
+          openOrderModal(id);
+        }
+      });
+
+      const modal = document.getElementById('orderModal');
+      const omBody = document.getElementById('omBody');
+      const omTitle = document.getElementById('omTitle');
+      let currentOrder = null;
+
+      function openOrderModal(id){
+        const o = (currentOrders || []).find(x=>String(x.id)===String(id));
+        if (!o) return alert('Ordine non trovato');
+        currentOrder = o;
+        const orderNo = (o.order_no != null && o.order_no !== '') ? String(o.order_no).padStart(6,'0') : String(o.number || o.id || '');
+        const clientName = String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
+        const created = o.created_at || o.date;
+        omTitle.textContent = `Ordine ${orderNo}${clientName ? ' — ' + clientName : ''}`;
+        let html = `<div><strong>Data:</strong> ${created ? new Date(created).toLocaleString() : ''}</div>`;
+        html += `<div><strong>Totale:</strong> ${eur(o.total)}</div>`;
+        html += `<h4 style="margin-top:12px">Articoli</h4>`;
+        html += '<div class="order-detail">';
+        for(const it of (o.items||[])){
+          html += `• ${it.name||it.code} — qty: ${it.qty||1} — prezzo: ${it.price||'—'}\n`;
+        }
+        html += '</div>';
+        omBody.innerHTML = html;
+        modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false');
+      }
+
+      document.getElementById('omClose').addEventListener('click', ()=>{ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); });
+      document.getElementById('omRestore').addEventListener('click', ()=>{
+        if (!currentOrder) return;
+        try{ localStorage.setItem('pp_cart_v1', JSON.stringify({ items: currentOrder.items || [] })); alert('Ordine ripristinato nel carrello'); window.location.href='carrello.html'; }catch(e){ alert('Errore ripristino'); }
+      });
+
+      (async ()=>{
+        const ok = await guardAdmin();
+        if (!ok) return;
+
+        try{
+          const sub = document.getElementById('ordersSubtitle');
+          if (sub && filterClientId){
+            sub.innerHTML = `Ordini del cliente selezionato • <a href="orders_admin_confermati.html" style="color:#2563eb;text-decoration:none;font-weight:800">Mostra tutti</a>`;
+          }
+        }catch(_){ }
+
+        try{
+          currentOrders = await loadOrdersFromSupabase();
+        } catch (e) {
+          console.warn('Supabase orders load failed, using localStorage fallback', e);
+          currentOrders = loadOrdersFallback();
+        }
+        render();
+      })();
+    })();
+  </script>
+</body>
+</html>

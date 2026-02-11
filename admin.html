@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard Amministratore - PaperPrint CRM</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js"></script>
+
+  <style>
+    /* ====== il tuo CSS (invariato) ====== */
+    main.container.dashboard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 60vh;
+    }
+    main.container.dashboard .utenti-card {
+      max-width: 1400px !important;
+      width: 100% !important;
+      margin: 2.5rem 0 2.5rem 0 !important;
+      background: #fff !important;
+      border-radius: 22px !important;
+      box-shadow: 0 10px 32px rgba(11,20,40,0.13) !important;
+      padding: 2.5rem 1.2rem 2.2rem 1.2rem !important;
+      border: none !important;
+      position: relative;
+      overflow-x: visible !important;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    main.container.dashboard .utenti-title {
+      font-size: 2.3rem !important;
+      font-weight: 800 !important;
+      margin-bottom: 1.2rem !important;
+      text-align: left !important;
+      letter-spacing: 0.5px;
+      color: #0b1220 !important;
+      width: 100%;
+    }
+    main.container.dashboard .utenti-actions {
+      width: 100%;
+      display: flex;
+      gap: .8rem;
+      justify-content: flex-end;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    main.container.dashboard .utenti-table {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+      width: 100% !important;
+      min-width: 1200px !important;
+      font-size: 1.13rem !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      table-layout: fixed !important;
+    }
+    main.container.dashboard .utenti-table th, main.container.dashboard .utenti-table td {
+      padding: 1.2rem 1.1rem !important;
+      border-bottom: 1.5px solid #e6e9ee !important;
+      vertical-align: middle !important;
+      word-break: break-word !important;
+      overflow-wrap: anywhere !important;
+      text-align: left !important;
+      background: none !important;
+    }
+    main.container.dashboard .utenti-table th {
+      background: #f4f7fb !important;
+      font-weight: 800 !important;
+      font-size: 1.18rem !important;
+      letter-spacing: 0.2px !important;
+      color: #0b1220 !important;
+      border-bottom: 2.5px solid #e6e9ee !important;
+      text-transform: none !important;
+    }
+    main.container.dashboard .utenti-table tr:nth-child(even) {
+      background: #fafbfc !important;
+    }
+    main.container.dashboard .utenti-table td:last-child {
+      text-align: right !important;
+      white-space: nowrap;
+    }
+    main.container.dashboard .visita-btn {
+      white-space: nowrap !important;
+      font-size: 1.03rem !important;
+      padding: 0.55rem 1.05rem !important;
+      border-radius: 9px !important;
+      background: #0b76ff !important;
+      color: #fff !important;
+      border: none !important;
+      box-shadow: 0 4px 16px rgba(11,118,255,0.13) !important;
+      cursor: pointer !important;
+      transition: background .18s, box-shadow .18s !important;
+      font-weight: 700 !important;
+      margin-left: 0.25rem !important;
+      outline: none !important;
+      display: inline-block !important;
+      text-decoration: none !important;
+    }
+    main.container.dashboard .visita-btn:hover,
+    main.container.dashboard .visita-btn:focus {
+      background: #00bcd4 !important;
+      box-shadow: 0 8px 24px rgba(11,118,255,0.18) !important;
+      outline: 2px solid #0b76ff !important;
+      outline-offset: 2px !important;
+    }
+
+    /* bottoni secondari (modifica/elimina) */
+    .btn-mini {
+      display: inline-block;
+      padding: 0.55rem 0.9rem;
+      border-radius: 9px;
+      font-weight: 700;
+      border: 1px solid #d7dde8;
+      background: #fff;
+      cursor: pointer;
+      margin-left: 0.25rem;
+      text-decoration: none;
+      color: #0b1220;
+      box-shadow: 0 2px 10px rgba(11,20,40,0.06);
+      transition: transform .08s, box-shadow .18s;
+    }
+    .btn-mini:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(11,20,40,0.10); }
+    .btn-danger { border-color: #ffd0d0; color: #b00020; }
+
+    /* Logout */
+    .site-header .btn-ghost#logout-btn {
+      background: #0b76ff !important;
+      color: #fff !important;
+      border: none !important;
+      border-radius: 8px !important;
+      font-size: 1.08rem !important;
+      font-weight: 700 !important;
+      padding: 0.55rem 1.25rem !important;
+      margin-left: 1.2rem !important;
+      box-shadow: 0 4px 16px rgba(11,118,255,0.13) !important;
+      cursor: pointer !important;
+      transition: background .18s, box-shadow .18s !important;
+      outline: none !important;
+    }
+    .site-header .btn-ghost#logout-btn:hover, .site-header .btn-ghost#logout-btn:focus {
+      background: #00bcd4 !important;
+      color: #fff !important;
+      box-shadow: 0 8px 24px rgba(11,118,255,0.18) !important;
+      outline: 2px solid #0b76ff !important;
+      outline-offset: 2px !important;
+    }
+
+    /* Catalog button (aesthetic only) */
+    .site-header .btn-catalog {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 12px;
+      text-decoration: none;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #f59e0b;
+      color: #ffffff;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: 0 10px 30px rgba(245,158,11,0.22);
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+      margin-right: 10px;
+    }
+    .site-header .btn-catalog:hover, .site-header .btn-catalog:focus {
+      background: #fbbf24;
+      transform: translateY(-1px);
+      box-shadow: 0 14px 36px rgba(245,158,11,0.28);
+      outline: 2px solid rgba(245,158,11,0.5);
+      outline-offset: 2px;
+    }
+    /* Header layout tweaks */
+    .site-header .header-inner { display:flex; align-items:center; justify-content:space-between; gap:18px; }
+    .site-header .brand { display:flex; align-items:center; gap:12px; }
+    .site-header .brand img { width:56px; height:56px; border-radius:12px; }
+    .site-header .brand .brand-text { font-size:20px; color:#0b5cff; font-weight:800; }
+    .site-header .nav { display:flex; gap:10px; align-items:center; }
+    .site-header .nav a, .site-header .nav button { text-decoration:none; }
+
+    /* Dashboard card styling */
+    .dashboard-card { max-width:1200px; margin:18px auto; background:#fff; border-radius:20px; padding:22px; box-shadow:0 20px 40px rgba(2,6,23,0.06); }
+    /* make table area scroll if too tall */
+    .dashboard-card .table-responsive{ max-height:66vh; overflow:auto; border-radius:12px; }
+    /* Orders button (green) */
+    .site-header .btn-orders {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 12px;
+      text-decoration: none;
+      border: 1px solid rgba(0,0,0,0.06);
+      background: #16a34a;
+      color: #ffffff;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: 0 10px 30px rgba(22,163,74,0.18);
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+      margin-right: 10px;
+    }
+    .site-header .btn-orders:hover, .site-header .btn-orders:focus {
+      background: #13a34a;
+      transform: translateY(-1px);
+      box-shadow: 0 14px 36px rgba(22,163,74,0.22);
+      outline: 2px solid rgba(34,197,94,0.25);
+      outline-offset: 2px;
+    }
+
+    /* ====== MODAL semplice ====== */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: 100%;
+      max-width: 560px;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.25);
+      padding: 18px;
+      font-family: Poppins, system-ui, sans-serif;
+    }
+    .modal h3 { margin: 0 0 10px 0; font-size: 1.4rem; }
+    .modal .row { display: grid; gap: 10px; margin-top: 10px; }
+    .modal label { font-weight: 700; font-size: .95rem; }
+    .modal input {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 10px;
+      border: 1px solid #d7dde8;
+      font-size: 1rem;
+      outline: none;
+    }
+    .modal input:focus { border-color: #0b76ff; box-shadow: 0 0 0 3px rgba(11,118,255,.12); }
+    .modal .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .modal .hint { font-size: .9rem; opacity: .8; margin-top: 6px; }
+    .modal .err { color: #b00020; font-weight: 700; margin-top: 10px; }
+    .btn-primary {
+      background: #0b76ff; color: #fff; border: none;
+      padding: 0.62rem 1.15rem; border-radius: 10px;
+      font-weight: 800; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(11,118,255,0.13);
+    }
+    .btn-ghost2 {
+      background: #fff; color: #0b1220; border: 1px solid #d7dde8;
+      padding: 0.62rem 1.15rem; border-radius: 10px;
+      font-weight: 800; cursor: pointer;
+    }
+
+    /* ====== MODAL CONFERMA ELIMINAZIONE (nuovo) ====== */
+    .confirm-title {
+      font-size: 1.7rem !important;
+      font-weight: 900 !important;
+      color: #b00020 !important;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px 0;
+    }
+    .confirm-text {
+      margin-top: 10px;
+      font-size: 1.05rem;
+      line-height: 1.35;
+    }
+    .btn-danger-solid {
+      background: #b00020 !important;
+      color: #fff !important;
+      border: none !important;
+    }
+    /* Fixed header to match other pages */
+    .site-header{position:fixed;top:0;left:0;right:0;background:#fff;z-index:1100;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
+    .site-header .header-inner{max-width:1320px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+    /* slim header band below the main header that holds table column headings */
+    .header-bottom{position:fixed;top:72px;left:0;right:0;background:linear-gradient(180deg, #fbeccb80, rgba(248, 250, 252, 0.6));z-index:1095;border-top:1px solid rgba(11,20,40,0.03);box-shadow:0 6px 18px rgb(2 6 23 / 24%)}
+    .header-bottom .container{max-width:1320px;margin:0 auto;padding:6px 20px}
+    .header-bottom .table-headers{overflow:auto}
+    .header-bottom table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:1rem}
+    .header-bottom th{padding:10px 12px;font-weight:800;color:#0b1220;text-align:left;border-bottom:none;background:transparent}
+    /* push main content below fixed header + header-bottom */
+    main.container.dashboard{padding-top:136px}
+
+    /* ====== ADMIN: Target layout overrides (fixed header + scroll body) ====== */
+    body#page-admin{height:100vh;overflow:hidden}
+
+    body#page-admin .site-header .header-inner{position:relative;max-width:1320px;margin:0 auto;padding:14px 20px}
+    body#page-admin .site-header .nav{position:static;transform:none;margin-left:auto;justify-content:flex-end;gap:10px}
+
+    /* Let real heights drive layout; values are set via JS */
+    body#page-admin .header-bottom{top:var(--admin-header-h, 72px)}
+    body#page-admin .header-bottom .container{max-width:1320px;margin:0 auto;padding:6px 20px}
+    body#page-admin .header-bottom .table-headers{overflow:hidden;padding-right:var(--admin-body-scrollbar-w, 0px)}
+    body#page-admin .header-bottom table{min-width:0;width:100%;table-layout:fixed}
+    body#page-admin .header-bottom th:last-child{text-align:center}
+
+    body#page-admin main.container.dashboard{
+      padding-top:0 !important;
+      position:fixed;
+      top:calc(var(--admin-header-h, 72px) + var(--admin-cols-h, 54px));
+      bottom:0;
+      left:0;
+      right:0;
+      max-width:none;
+      width:100%;
+    }
+    body#page-admin main.container.dashboard > .dashboard-card{
+      height:100%;
+      max-width:1320px;
+      margin:0 auto;
+      padding:0 20px 16px;
+      background:transparent;
+      border-radius:0;
+      box-shadow:none;
+    }
+
+    /* The global .cards is a 3-column grid; admin must be full-width */
+    body#page-admin .cards{
+      display:block !important;
+      grid-template-columns:none !important;
+      gap:0 !important;
+      margin-top:0 !important;
+    }
+
+    body#page-admin main.container.dashboard .utenti-card{
+      background:transparent !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      padding:0 !important;
+      margin:0 !important;
+      align-items:stretch;
+    }
+    body#page-admin main.container.dashboard .utenti-title{display:none}
+
+    body#page-admin .table-responsive{
+      height:100%;
+      max-height:none !important;
+      overflow-y:auto;
+      overflow-x:hidden;
+      border-radius:0;
+    }
+    body#page-admin #table-head-scroll,
+    body#page-admin #table-body-scroll{width:100%}
+    body#page-admin .utenti-table{
+      min-width:0 !important;
+      width:100% !important;
+      table-layout:fixed !important;
+      font-size:1rem !important;
+    }
+    body#page-admin .utenti-table th{
+      padding:0.95rem 0.9rem !important;
+    }
+    body#page-admin .utenti-table tbody td{
+      /* Body rows tighter: -6px total vs header (3px top + 3px bottom) */
+      padding:calc(0.95rem - 6px) 0.9rem !important;
+    }
+    body#page-admin .utenti-table tbody tr:first-child td{
+      /* First data row: +1px (top only) vs following rows */
+      padding-top:calc(0.95rem - 2px) !important;
+    }
+
+    /* Troncamento elegante per campi lunghi (ID/Nome/Email) */
+    body#page-admin .utenti-table td:nth-child(1),
+    body#page-admin .utenti-table td:nth-child(2),
+    body#page-admin .utenti-table td:nth-child(3){
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      /* evita che word-break/overflow-wrap forzino wrap e "rompano" l’ellipsis */
+      word-break:normal;
+      overflow-wrap:normal;
+    }
+    body#page-admin .utenti-table td:nth-child(1){font-size:.92rem}
+
+    /* Righe alternate (zebra): una bianca e una grigio chiaro */
+    body#page-admin .utenti-table tbody tr:nth-child(odd) td{
+      background:#ffffff !important;
+    }
+    body#page-admin .utenti-table tbody tr:nth-child(even) td{
+      background:#f1f5f9 !important;
+    }
+
+    /* Su schermi piccoli, evita overlap del nav centrato */
+    @media (max-width: 980px){
+      body#page-admin .site-header{height:auto}
+      body#page-admin .site-header .header-inner{padding:12px 16px}
+      body#page-admin .site-header .nav{position:static;transform:none;justify-content:flex-end;flex-wrap:wrap}
+      body#page-admin .header-bottom{top:unset;position:sticky}
+      body#page-admin main.container.dashboard{position:static;top:unset;height:auto;overflow:visible;padding-top:16px !important}
+      body#page-admin{overflow:auto;height:auto}
+      body#page-admin main.container.dashboard > .dashboard-card{height:auto}
+      body#page-admin .table-responsive{height:auto;overflow:auto}
+      body#page-admin .header-bottom .table-headers{overflow:auto}
+      body#page-admin .header-bottom .table-headers{padding-right:0}
+    }
+  </style>
+</head>
+
+<body id="page-admin">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo-link">
+        <div class="logo"><img src="assets/logo.png" alt="PaperPrint" onerror="this.onerror=null;this.src='assets/logo.svg'"></div>
+        <span class="brand-text">Dashboard</span>
+      </a>
+      <nav class="nav">
+        <button id="add-client-btn" type="button" class="btn-primary">➕ Aggiungi Cliente</button>
+        <a class="btn-catalog" href="catalogo_admin.html">vai al Catalogo</a>
+        <a class="btn-orders" href="orders_admin_confermati.html">Ordini</a>
+        <button id="logout-btn" class="btn-ghost" type="button">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="header-bottom">
+    <div class="container header-inner">
+      <div class="table-headers" id="table-head-scroll">
+        <table aria-hidden="true">
+          <colgroup>
+            <col style="width:21%">
+            <col style="width:22%">
+            <col style="width:27%">
+            <col style="width:7%">
+            <col style="width:7%">
+            <col style="width:25%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nome</th>
+              <th>Email</th>
+              <th>Ruolo</th>
+              <th>Stato</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <main class="container dashboard">
+    <div class="dashboard-card">
+      <section class="cards">
+        <div class="card utenti-card">
+        <h2 class="utenti-title">Utenti Registrati</h2>
+
+        <div class="table-responsive" id="table-body-scroll" style="max-width:100%">
+          <table id="user-table" class="utenti-table" style="width:100%;margin-top:0.2rem">
+            <colgroup>
+              <col style="width:21%">
+              <col style="width:22%">
+              <col style="width:27%">
+              <col style="width:7%">
+              <col style="width:7%">
+              <col style="width:25%">
+            </colgroup>
+            <!-- the column headings are rendered in the fixed header-bottom -->
+            <tbody><!-- Popolato da JS --></tbody>
+          </table>
+        </div>
+
+        <p id="user-table-error" class="error" aria-live="polite"></p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===== MODAL: CREATE / EDIT ===== -->
+  <div id="modal-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h3 id="modal-title">Titolo</h3>
+
+      <div class="row">
+        <div>
+          <label for="m-name">Nome</label>
+          <input id="m-name" type="text" placeholder="Nome e Cognome">
+        </div>
+
+        <div>
+          <label for="m-email">Email</label>
+          <input id="m-email" type="email" placeholder="email@dominio.it">
+        </div>
+
+        <div>
+          <label for="m-pass">Password</label>
+          <input id="m-pass" type="password" placeholder="Minimo 6 caratteri">
+          <div class="hint" id="m-pass-hint"></div>
+        </div>
+      </div>
+
+      <div class="err" id="m-err" style="display:none"></div>
+
+      <div class="actions">
+        <button id="m-cancel" type="button" class="btn-ghost2">Annulla</button>
+        <button id="m-save" type="button" class="btn-primary">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: CONFERMA ELIMINAZIONE (nuovo) ===== -->
+  <div id="confirm-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h3 id="confirm-title" class="confirm-title">⚠️ <span>ATTENZIONE !!!</span></h3>
+
+      <div class="confirm-text">
+        Vuoi eliminare definitivamente questo cliente?<br>
+        <strong>Questa azione non può essere annullata.</strong>
+      </div>
+
+      <div class="actions" style="margin-top:18px">
+        <button id="confirm-cancel" type="button" class="btn-ghost2">Annulla</button>
+        <button id="confirm-ok" type="button" class="btn-primary btn-danger-solid">Elimina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: PROFILO CLIENTE (VISITA) ===== -->
+  <div id="client-backdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="client-title">
+      <h3 id="client-title">Profilo Cliente</h3>
+      <div class="row">
+        <div>
+          <label>ID</label>
+          <div id="c-id" style="font-weight:800;word-break:break-all">—</div>
+        </div>
+        <div>
+          <label>Nome</label>
+          <div id="c-name" style="font-weight:800">—</div>
+        </div>
+        <div>
+          <label>Email</label>
+          <div id="c-email" style="font-weight:800">—</div>
+        </div>
+        <div>
+          <label>Stato</label>
+          <div id="c-active" style="font-weight:900">—</div>
+        </div>
+        <div>
+          <label>Ordini (ultimi 5)</label>
+          <div id="c-orders" class="hint">Caricamento…</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a id="c-mailto" class="btn-ghost2" href="#" target="_blank" rel="noopener">Scrivi Email</a>
+        <a id="c-orders-link" class="btn-primary" href="#" target="_blank" rel="noopener">Vedi Ordini</a>
+        <button id="c-close" type="button" class="btn-ghost2">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://fyddanuilbuwndeeihqw.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_xlF4ZQlghw2AVgHPrYpGtA_p-msJmr0";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ---------- UI helpers ----------
+    const el = (id) => document.getElementById(id);
+
+    function setError(msg) {
+      el("user-table-error").textContent = msg || "";
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    // ---------- Modal state ----------
+    let modalMode = "create"; // create | edit
+    let editingUserId = null;
+
+    function openModal(mode, user = null) {
+      modalMode = mode;
+      editingUserId = user?.id || null;
+
+      el("m-err").style.display = "none";
+      el("m-err").textContent = "";
+
+      el("m-name").value = user?.full_name || "";
+      el("m-email").value = user?.email || "";
+      el("m-pass").value = "";
+
+      if (mode === "create") {
+        el("modal-title").textContent = "➕ Aggiungi nuovo Cliente";
+        el("m-pass-hint").textContent = "Password obbligatoria (min 6).";
+      } else {
+        el("modal-title").textContent = "✏️ Modifica Cliente";
+        el("m-pass-hint").textContent = "Lascia vuoto se NON vuoi cambiare password.";
+      }
+
+      el("modal-backdrop").classList.add("open");
+      el("modal-backdrop").setAttribute("aria-hidden", "false");
+      setTimeout(() => el("m-name").focus(), 50);
+    }
+
+    function closeModal() {
+      el("modal-backdrop").classList.remove("open");
+      el("modal-backdrop").setAttribute("aria-hidden", "true");
+      editingUserId = null;
+    }
+
+    el("m-cancel").addEventListener("click", closeModal);
+    el("modal-backdrop").addEventListener("click", (e) => {
+      if (e.target === el("modal-backdrop")) closeModal();
+    });
+
+    function modalError(msg) {
+      el("m-err").textContent = msg;
+      el("m-err").style.display = "block";
+    }
+
+    // ---------- Confirm delete modal (nuovo) ----------
+    let confirmResolve = null;
+
+    function openConfirm() {
+      return new Promise((resolve) => {
+        confirmResolve = resolve;
+        el("confirm-backdrop").classList.add("open");
+        el("confirm-backdrop").setAttribute("aria-hidden", "false");
+        setTimeout(() => el("confirm-ok").focus(), 30);
+      });
+    }
+
+    function closeConfirm(result) {
+      el("confirm-backdrop").classList.remove("open");
+      el("confirm-backdrop").setAttribute("aria-hidden", "true");
+      if (confirmResolve) confirmResolve(result);
+      confirmResolve = null;
+    }
+
+    el("confirm-cancel").addEventListener("click", () => closeConfirm(false));
+    el("confirm-ok").addEventListener("click", () => closeConfirm(true));
+    el("confirm-backdrop").addEventListener("click", (e) => {
+      if (e.target === el("confirm-backdrop")) closeConfirm(false);
+    });
+
+    // ESC per chiudere modali
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (el("confirm-backdrop").classList.contains("open")) closeConfirm(false);
+        if (el("modal-backdrop").classList.contains("open")) closeModal();
+        if (el("client-backdrop").classList.contains("open")) closeClientModal();
+      }
+    });
+
+    // ---------- Auth / Guard ----------
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      try { await sb.auth.signOut(); } catch (_) {}
+      window.location.href = "index.html";
+    });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const { data: userData, error: userErr } = await sb.auth.getUser();
+      const user = userData?.user;
+      if (userErr || !user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      const { data: profile, error: profErr } = await sb
+        .from("profiles")
+        .select("role, is_active")
+        .eq("id", user.id)
+        .single();
+
+      if (profErr || !profile || profile.role !== "admin" || profile.is_active === false) {
+        alert("Accesso negato: solo amministratori.");
+        try { await sb.auth.signOut(); } catch (_) {}
+        window.location.href = "index.html";
+        return;
+      }
+
+      await loadUsers();
+    });
+
+    // ---------- Data ----------
+    async function loadUsers() {
+      setError("");
+
+      const { data, error } = await sb.functions.invoke("admin-users", {
+        body: { action: "list" },
+      });
+
+      if (error || !data?.ok) {
+        console.error("Errore admin-users:", error, data);
+        setError(data?.error || error?.message || "Errore caricamento utenti (admin-users).");
+        return;
+      }
+
+      renderUsers(data.users || []);
+      try{
+        const clientsList = (data.users || []).filter(u => String(u.role||'').toLowerCase() === 'client' && (u.is_active === true || String(u.is_active).toLowerCase() === 'true'))
+          .map(u => ({ id: u.id, name: u.full_name || u.name || u.email || u.id }));
+        if (Array.isArray(clientsList) && clientsList.length){
+          try{ localStorage.setItem('pp_clients', JSON.stringify(clientsList)); }catch(e){ console.warn('pp_clients cache failed', e); }
+        } else {
+          try{ localStorage.removeItem('pp_clients'); }catch(e){}
+        }
+      }catch(e){ console.warn('Error caching clients', e); }
+    }
+
+    function renderUsers(users) {
+      const tbody = document.querySelector("#user-table tbody");
+      if (!tbody) {
+        console.error("tbody non trovato");
+        return;
+      }
+
+      tbody.innerHTML = "";
+
+      (users || []).forEach(u => {
+        const id = escapeHtml(u.id);
+        const name = escapeHtml((u.full_name ?? "").trim() || "—");
+        const email = escapeHtml((u.email ?? "").trim() || "—");
+        const role = escapeHtml(u.role ?? "—");
+        const stato = u.is_active ? "Attivo" : "Disattivo";
+
+        // SOLO CLIENT: Visita / Modifica / Elimina
+        const isClient = (String(u.role || '').toLowerCase() === "client");
+
+        const actions = isClient ? `
+          <button type="button" class="visita-btn visit-btn" data-id="${id}" data-name="${escapeHtml(u.full_name ?? "")}" data-email="${escapeHtml(u.email ?? "")}" data-active="${u.is_active ? '1' : '0'}">Visita</button>
+          <button type="button" class="btn-mini edit-btn" data-id="${id}" data-email="${escapeHtml(u.email ?? "")}" data-name="${escapeHtml(u.full_name ?? "")}">Modifica</button>
+          <button type="button" class="btn-mini btn-danger del-btn" data-id="${id}">Elimina</button>
+        ` : "";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${id}</td>
+          <td>${name}</td>
+          <td>${email}</td>
+          <td>${role}</td>
+          <td>${stato}</td>
+          <td>${actions}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ---------- Buttons ----------
+    const refreshBtn = el("refresh-btn");
+    if (refreshBtn) refreshBtn.addEventListener("click", loadUsers);
+
+    el("add-client-btn").addEventListener("click", () => {
+      openModal("create");
+    });
+
+    // Delegation su tabella per Visita/Modifica/Elimina
+    document.querySelector("#user-table tbody").addEventListener("click", async (e) => {
+      const visit = e.target.closest(".visit-btn");
+      const edit = e.target.closest(".edit-btn");
+      const del = e.target.closest(".del-btn");
+      if (!visit && !edit && !del) return;
+
+      if (visit) {
+        const clientId = visit.getAttribute("data-id");
+        const fullName = visit.getAttribute("data-name") || "";
+        const email = visit.getAttribute("data-email") || "";
+        const active = visit.getAttribute("data-active") === "1";
+        if (!active) {
+          alert('Cliente disattivato: impossibile entrare in assistenza.');
+          return;
+        }
+
+        // Avvia modalità assistenza: l'admin entra nell'interfaccia client "come se" fosse quel cliente.
+        try{
+          localStorage.setItem('pp_assist_client_id', String(clientId || ''));
+          localStorage.setItem('pp_assist_client_name', String(fullName || ''));
+          localStorage.setItem('pp_assist_client_email', String(email || ''));
+          localStorage.setItem('pp_assist_started_at', String(Date.now()));
+        }catch(_){ }
+
+        window.location.href = `client.html?as_client=${encodeURIComponent(clientId || '')}`;
+        return;
+      }
+
+      const userId = (edit || del).getAttribute("data-id");
+
+      if (edit) {
+        const full_name = edit.getAttribute("data-name") || "";
+        const email = edit.getAttribute("data-email") || "";
+        openModal("edit", { id: userId, full_name, email });
+        return;
+      }
+
+      if (del) {
+        const ok = await openConfirm(); // ✅ sostituisce confirm() del browser
+        if (!ok) return;
+
+        setError("");
+        const { data, error } = await sb.functions.invoke("admin-users", {
+          body: { action: "delete", id: userId },
+        });
+
+        if (error || !data?.ok) {
+          console.error("Delete error:", error, data);
+          alert(data?.error || error?.message || "Errore eliminazione cliente.");
+          return;
+        }
+
+        await loadUsers();
+      }
+    });
+
+    // ---------- Modal profilo cliente (Visita) ----------
+    let currentClient = null;
+
+    function openClientModal(client){
+      currentClient = client || null;
+      el("c-id").textContent = client?.id || "—";
+      el("c-name").textContent = (client?.full_name || "").trim() || "—";
+      el("c-email").textContent = (client?.email || "").trim() || "—";
+      el("c-active").textContent = client?.is_active ? "Attivo" : "Disattivo";
+      el("c-orders").textContent = "Caricamento…";
+
+      const email = (client?.email || "").trim();
+      el("c-mailto").href = email ? `mailto:${encodeURIComponent(email)}` : "#";
+      el("c-mailto").style.pointerEvents = email ? "auto" : "none";
+      el("c-mailto").style.opacity = email ? "1" : ".55";
+      el("c-orders-link").href = client?.id ? `orders_admin_confermati.html?client_id=${encodeURIComponent(client.id)}` : "#";
+
+      el("client-backdrop").classList.add("open");
+      el("client-backdrop").setAttribute("aria-hidden", "false");
+      setTimeout(() => el("c-close").focus(), 50);
+      loadClientOrdersPreview(client?.id);
+    }
+
+    function closeClientModal(){
+      el("client-backdrop").classList.remove("open");
+      el("client-backdrop").setAttribute("aria-hidden", "true");
+      currentClient = null;
+    }
+
+    el("c-close").addEventListener("click", closeClientModal);
+    el("client-backdrop").addEventListener("click", (e) => {
+      if (e.target === el("client-backdrop")) closeClientModal();
+    });
+
+    async function loadClientOrdersPreview(clientId){
+      if (!clientId) { el("c-orders").textContent = "—"; return; }
+      try{
+        const { data, error } = await sb
+          .from("orders_confirmed")
+          .select("id, order_no, created_at, status")
+          .eq("client_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        if (error) throw error;
+        const rows = Array.isArray(data) ? data : [];
+        if (!rows.length) { el("c-orders").textContent = "Nessun ordine."; return; }
+        const lines = rows.map(o => {
+          const no = (o.order_no != null && o.order_no !== "") ? String(o.order_no).padStart(6,"0") : "";
+          const dt = o.created_at ? new Date(o.created_at).toLocaleString() : "";
+          const st = (o.status || "").toString();
+          return `• ${no} — ${dt} — ${st}`;
+        });
+        el("c-orders").textContent = lines.join("\n");
+      }catch(err){
+        console.warn("Orders preview failed", err);
+        el("c-orders").textContent = "Impossibile caricare ordini.";
+      }
+    }
+
+    // Salva modal (create/edit)
+    el("m-save").addEventListener("click", async () => {
+      const full_name = el("m-name").value.trim();
+      const email = el("m-email").value.trim().toLowerCase();
+      const password = el("m-pass").value;
+
+      el("m-err").style.display = "none";
+      el("m-err").textContent = "";
+
+      if (!full_name || !email) {
+        modalError("Nome ed Email sono obbligatori.");
+        return;
+      }
+
+      // CREATE
+      if (modalMode === "create") {
+        if (!password || password.length < 6) {
+          modalError("Password obbligatoria (min 6).");
+          return;
+        }
+
+        const { data, error } = await sb.functions.invoke("admin-users", {
+          body: { action: "create", full_name, email, password },
+        });
+
+        if (error || !data?.ok) {
+          console.error("Create error:", error, data);
+          modalError(data?.error || error?.message || "Errore creazione cliente.");
+          return;
+        }
+
+        closeModal();
+        await loadUsers();
+        return;
+      }
+
+      // EDIT
+      if (!editingUserId) {
+        modalError("ID utente mancante.");
+        return;
+      }
+
+      if (password && password.length > 0 && password.length < 6) {
+        modalError("Se cambi password deve essere min 6.");
+        return;
+      }
+
+      const body = { action: "update", id: editingUserId, full_name, email };
+      if (password && password.length >= 6) body.password = password;
+
+      const { data, error } = await sb.functions.invoke("admin-users", { body });
+
+      if (error || !data?.ok) {
+        console.error("Update error:", error, data);
+        modalError(data?.error || error?.message || "Errore modifica cliente.");
+        return;
+      }
+
+      closeModal();
+      await loadUsers();
+    });
+
+    // Sync horizontal scroll: fixed column headers <-> table body
+    (() => {
+      const headScroll = document.getElementById("table-head-scroll");
+      const bodyScroll = document.getElementById("table-body-scroll");
+      if (!headScroll || !bodyScroll) return;
+
+      let syncing = false;
+      const sync = (from, to) => () => {
+        if (syncing) return;
+        syncing = true;
+        to.scrollLeft = from.scrollLeft;
+        syncing = false;
+      };
+
+      bodyScroll.addEventListener("scroll", sync(bodyScroll, headScroll), { passive: true });
+      headScroll.addEventListener("scroll", sync(headScroll, bodyScroll), { passive: true });
+    })();
+
+    // Keep fixed header + fixed column band perfectly spaced
+    (() => {
+      const body = document.body;
+      const siteHeader = document.querySelector(".site-header");
+      const headerBottom = document.querySelector(".header-bottom");
+      const bodyScroll = document.getElementById("table-body-scroll");
+      if (!body || !siteHeader || !headerBottom) return;
+
+      const applyHeights = () => {
+        const headerH = Math.round(siteHeader.getBoundingClientRect().height);
+        const colsH = Math.round(headerBottom.getBoundingClientRect().height);
+        body.style.setProperty("--admin-header-h", `${headerH}px`);
+        body.style.setProperty("--admin-cols-h", `${colsH}px`);
+
+        if (bodyScroll) {
+          const sbw = Math.max(0, bodyScroll.offsetWidth - bodyScroll.clientWidth);
+          body.style.setProperty("--admin-body-scrollbar-w", `${sbw}px`);
+        }
+      };
+
+      // Initial + after fonts/layout settle
+      requestAnimationFrame(applyHeights);
+      setTimeout(applyHeights, 50);
+      setTimeout(applyHeights, 250);
+
+      window.addEventListener("resize", applyHeights);
+    })();
+  </script>
+</body>
+</html>

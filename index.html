@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PaperPrint CRM - Home</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <meta name="description" content="PaperPrint CRM - Area demo (frontend only)">
+</head>
+<body id="page-home">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo-link">
+        <div class="logo"><img src="assets/logo.png" alt="PaperPrint" onerror="this.onerror=null;this.src='assets/logo.svg'"></div>
+        <span class="brand-text">PaperPrint</span>
+      </a>
+      <nav class="nav">
+        <a href="admin-login.html" class="btn btn-ghost">Accesso Amministratore</a>
+        <a href="client-login.html" class="btn">Accesso Cliente</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main-hero">
+    <div class="hero auth-card">
+      <h1>Benvenuto in PaperPrint CRM</h1>
+      <p class="lead">Accedi per gestire clienti e servizi.</p>
+      <div class="cta">
+        <a href="admin-login.html" class="btn btn-large">Login Amministratore</a>
+        <a href="client-login.html" class="btn btn-outline btn-large">Login Cliente</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <small>© <strong>PaperPrint</strong> — Demo front-end • Solo per test</small>
+    </div>
+  </footer>
+
+  <script src="assets/app.js" defer></script>
+</body>
+</html>

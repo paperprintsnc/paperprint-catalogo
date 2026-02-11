@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PaperPrint - Carrello</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js"></script>
+  <style>
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 16px;}
+    /* fixed header for totals and actions */
+    .topbar{position:fixed;top:0;left:0;right:0;height:96px;background:linear-gradient(180deg,#dbe6ef,rgba(248,250,252,0.6));box-shadow: -10px -12px 20px 0px #011016;}
+    .topbar-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:100%;padding:12px 20px;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand img{height:58px}
+    .brand span{font-weight:900;font-size:22px}
+    .header-totals{display:flex;gap:12px;align-items:center}
+    .hdr-box{background:#fff;border-radius:12px;padding:8px 14px;text-align:center;min-width:96px;border:1px solid rgba(15,23,42,.06);box-shadow: inset 1px 1px 0px 1px var(--muted)}
+    .hdr-amt{font-weight:900;color:#0f172a}
+    .hdr-label{font-size:12px;color:#64748b}
+    .hdr-count{font-weight:900;color:#0f172a;margin-left:14px}
+    .hdr-count-badge{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:92px}
+    .hdr-count-badge .hdr-count-label{font-size:12px;color:#64748b;font-weight:900}
+    .hdr-count-badge .hdr-count-num{font-weight:900;color:#16a34a;background:#fff;padding:6px 12px;border-radius:12px;border:2px solid rgba(22,163,74,0.14);box-shadow: inset 1px 1px 0px 1px var(--muted)}
+    .header-actions{display:flex;gap:8px;align-items:center}
+    .header-actions .btn{border-radius:14px;padding:8px 12px}
+    .wrap{padding-top:110px}
+    .cart-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
+    .cart-head h1{margin:0;font-size:32px;}
+    .cart-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .btn{border:1px solid rgba(15,23,42,.12);background:#fff;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer;text-decoration:none;color:#0f172a;}
+    .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb;}
+    .cart-empty{padding:24px;border:1px dashed rgba(15,23,42,.2);border-radius:16px;color:#475569;font-weight:700;background:rgba(248,250,252,.7);}
+    .cart-list{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+    .cart-row{display:grid;grid-template-columns:72px 1fr auto auto auto;gap:12px;align-items:center;
+      padding:12px;border:1px solid rgba(15,23,42,.10);border-radius:16px;background:#fff;
+      box-shadow:0 8px 22px rgba(2,6,23,.06);}
+    .thumb{width:72px;height:72px;border-radius:14px;background:rgba(2,6,23,.04);overflow:hidden;border:1px solid rgba(15,23,42,.08);}
+    .thumb img{width:100%;height:100%;object-fit:cover;}
+    .meta{min-width:0}
+    .name{font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .code{color:#64748be0;font-weight:900;font-size:12px;margin-top:2px;}
+    .price{font-weight:900;color:#0f172a;white-space:nowrap;}
+    .qty{display:flex;align-items:center;gap:8px;}
+    .qty button{width:36px;height:36px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#2563eb47;cursor:pointer;font-weight:1000;}
+    .qty span{min-width:22px;text-align:center;font-weight:900;}
+    .remove{width:36px;height:36px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#dd4545a6;cursor:pointer;font-weight:900;}
+    /* confirm dialog for cart page */
+    .cart-confirm-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:12000}
+    .cart-confirm-box{background:#fff;border-radius:12px;padding:18px;min-width:320px;box-shadow:0 18px 60px rgba(2,6,23,.35)}
+    .cart-confirm-msg{font-weight:800;color:#0f172a;margin-bottom:12px}
+    .cart-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+    .cart-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid rgba(15,23,42,.10);} 
+    .tot{font-size:18px;font-weight:900;color:#0f172a;}
+    @media (max-width: 740px){
+      .cart-row{grid-template-columns:72px 1fr auto;grid-template-areas:
+        "t m r"
+        "t p p"
+        "t q q";} 
+      .thumb{grid-area:t}
+      .meta{grid-area:m}
+      .remove{grid-area:r;justify-self:end}
+      .price{grid-area:p}
+      .qty{grid-area:q}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="assets/logo.png" alt="PaperPrint" onerror="this.style.display='none'">
+        <span>🛒 Carrello</span>
+      </div>
+
+      <div class="header-totals" aria-hidden="false">
+        <div class="hdr-box">
+          <div class="hdr-amt" id="hdrSubtotal">—</div>
+          <div class="hdr-label">(Totale Imponibile)</div>
+        </div>
+        <div class="hdr-box">
+          <div class="hdr-amt" id="hdrIva">—</div>
+          <div class="hdr-label">(Totale IVA)</div>
+        </div>
+        <div class="hdr-box">
+          <div class="hdr-amt" id="hdrTotal">—</div>
+          <div class="hdr-label">(Totale Ordine)</div>
+        </div>
+        <div class="hdr-count-badge" aria-hidden="false">
+          <div class="hdr-count-label">Articoli</div>
+          <div class="hdr-count-num" id="hdrCount">—</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn" id="hdrContinue">Continua lo Shopping</button>
+        <button class="btn primary" id="hdrConfirm">Conferma ordine</button>
+        <button class="btn" id="hdrClear" style="background:#ef4444;border-color:#ef4444;color:#fff">Svuota Carrello</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="cart-head">
+      <div style="height:8px"></div>
+      <div class="cart-actions">
+        <button class="btn" id="btnClear" style="display:none">Svuota</button>
+        <button class="btn primary" id="btnCheckout" style="display:none">Procedi (demo)</button>
+      </div>
+    </div>
+
+    <div id="empty" class="cart-empty" style="display:none;">Carrello vuoto.</div>
+    <div id="list" class="cart-list"></div>
+
+    <!-- confirm dialog (cart) -->
+    <div id="cartConfirmOverlay" class="cart-confirm-overlay" role="dialog" aria-hidden="true">
+      <div class="cart-confirm-box">
+        <div class="cart-confirm-msg" id="cartConfirmMsg">Confermare?</div>
+        <div class="cart-confirm-actions">
+          <button class="btn" id="cartConfirmNo">Annulla</button>
+          <button class="btn primary" id="cartConfirmYes">Conferma</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cart-foot" style="display:none">
+      <div class="tot" id="tot">Totale: —</div>
+      <div class="tot" id="count">Articoli: —</div>
+    </div>
+  </main>
+
+  <!-- Order client selection modal -->
+  <div id="orderClientModal" class="cart-confirm-overlay" role="dialog" aria-hidden="true" style="display:none;">
+    <div class="cart-confirm-box">
+      <h3 style="margin:0 0 10px 0;font-weight:900">Conferma Ordine: Seleziona Cliente</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <select id="orderClientSelect" style="padding:8px;border-radius:8px;border:1px solid rgba(15,23,42,.10)"></select>
+        <input id="orderClientManual" placeholder="Oppure inserisci nuovo cliente (nome)" style="padding:8px;border-radius:8px;border:1px solid rgba(15,23,42,.10)">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <small id="orderClientSource" style="color:#64748b;font-size:12px">Fonte: —</small>
+          <button id="orderClientReload" class="btn" type="button" style="padding:6px 8px;font-size:12px">Ricarica clienti</button>
+          <button id="orderClientOpenAdmin" class="btn" type="button" style="padding:6px 8px;font-size:12px">Apri Admin</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="orderClientCancel">Annulla</button>
+        <button class="btn primary" id="orderClientConfirm">Conferma e Archivia</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  const LEGACY_CART_KEY = "pp_cart_v1";
+  let CART_KEY = LEGACY_CART_KEY;
+  const VAT_RATE = 0.22;
+
+  const urlParams = new URLSearchParams(location.search);
+  const assistClientId = (urlParams.get('as_client') || '').trim();
+
+  const sb = (window.__pp_supabase_client)
+    ? window.__pp_supabase_client
+    : (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY)
+      ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
+      : null;
+
+  const $hdrSubtotal = document.getElementById("hdrSubtotal");
+  const $hdrIva = document.getElementById("hdrIva");
+  const $hdrTotal = document.getElementById("hdrTotal");
+  const $hdrCount = document.getElementById("hdrCount");
+
+  const $list = document.getElementById("list");
+  const $empty = document.getElementById("empty");
+  const $tot = document.getElementById("tot");
+  const $count = document.getElementById("count");
+
+  // cart confirm dialog elements
+  const $cartConfirmOverlay = document.getElementById('cartConfirmOverlay');
+  const $cartConfirmMsg = document.getElementById('cartConfirmMsg');
+  const $cartConfirmYes = document.getElementById('cartConfirmYes');
+  const $cartConfirmNo = document.getElementById('cartConfirmNo');
+
+  function eur(v){
+    const n = Number(String(v ?? "").replace(",", "."));
+    if (!isFinite(n)) return "";
+    return n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+  }
+  function esc(s){
+    return (s??"").toString()
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+  function loadCart(){
+    try{
+      const raw = localStorage.getItem(CART_KEY);
+      const j = raw ? JSON.parse(raw) : {items:[]};
+      if (!j || !Array.isArray(j.items)) return {items:[]};
+      return j;
+    }catch(e){ return {items:[]}; }
+  }
+  function saveCart(c){ localStorage.setItem(CART_KEY, JSON.stringify(c)); }
+  function totals(items){
+    let qty = 0, sum = 0;
+    for (const it of items){
+      const q = Math.max(1, Number(it.qty||1));
+      qty += q;
+      const p = Number(String(it.price ?? "").replace(",","."));
+      if (isFinite(p)) sum += p*q;
+    }
+    return {qty, sum};
+  }
+
+  function confirmDialogCart(message){
+    return new Promise(resolve =>{
+      if (!$cartConfirmOverlay) return resolve(true);
+      $cartConfirmMsg.textContent = message || 'Sei sicuro?';
+      $cartConfirmOverlay.style.display = 'flex';
+      $cartConfirmOverlay.setAttribute('aria-hidden','false');
+      const cleanup = ()=>{ $cartConfirmOverlay.style.display='none'; $cartConfirmOverlay.setAttribute('aria-hidden','true'); $cartConfirmYes.removeEventListener('click',onYes); $cartConfirmNo.removeEventListener('click',onNo); };
+      const onYes = ()=>{ cleanup(); resolve(true); };
+      const onNo = ()=>{ cleanup(); resolve(false); };
+      $cartConfirmYes.addEventListener('click', onYes);
+      $cartConfirmNo.addEventListener('click', onNo);
+    });
+  }
+
+  async function guardAnyActiveUser(){
+    try{
+      if (!sb) {
+        window.location.href = 'index.html';
+        return null;
+      }
+      const { data: { user }, error: userErr } = await sb.auth.getUser();
+      if (userErr || !user) {
+        window.location.href = 'index.html';
+        return null;
+      }
+      const { data: prof, error: profErr } = await sb
+        .from('profiles')
+        .select('role,is_active')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profErr || !prof || prof.is_active === false) {
+        await sb.auth.signOut().catch(()=>{});
+        window.location.href = 'index.html';
+        return null;
+      }
+
+      const role = String(prof.role || '').toLowerCase();
+      if (role !== 'admin' && role !== 'client') {
+        await sb.auth.signOut().catch(()=>{});
+        window.location.href = 'index.html';
+        return null;
+      }
+
+      return { userId: user.id, role };
+    }catch(e){
+      try{ await sb?.auth?.signOut?.(); }catch(_e){}
+      window.location.href = 'index.html';
+      return null;
+    }
+  }
+
+  function render(){
+    const cart = loadCart();
+    $list.innerHTML = "";
+    if (!cart.items.length){
+      $empty.style.display = "block";
+      $tot.textContent = "Totale: —";
+      $count.textContent = "Articoli: 0";
+      // ensure header totals and counters are cleared as well
+      if ($hdrSubtotal) $hdrSubtotal.textContent = "—";
+      if ($hdrIva) $hdrIva.textContent = "—";
+      if ($hdrTotal) $hdrTotal.textContent = "—";
+      if ($hdrCount) $hdrCount.textContent = "0";
+      return;
+    }
+    $empty.style.display = "none";
+
+    for (const it of cart.items){
+      const row = document.createElement("div");
+      row.className = "cart-row";
+      row.dataset.code = it.code;
+
+      const img = it.img ? `<img src="${esc(it.img)}" alt="">` : "";
+      row.innerHTML = `
+        <div class="thumb">${img}</div>
+        <div class="meta">
+          <div class="name">${esc(it.name || "")}</div>
+          <div class="code">${esc(it.code || "")}</div>
+        </div>
+        <div class="price">${eur(it.price) || "—"}</div>
+        <div class="qty">
+          <button type="button" class="qdown">−</button>
+          <span class="qval">${Number(it.qty||1)}</span>
+          <button type="button" class="qup">+</button>
+        </div>
+        <button type="button" class="remove" title="Rimuovi">✕</button>
+      `;
+
+      row.querySelector(".qup").addEventListener("click", ()=>{
+        const c = loadCart();
+        const x = c.items.find(a => String(a.code) === String(it.code));
+        if (x){ x.qty = Math.min(99, Number(x.qty||1)+1); }
+        saveCart(c); render();
+      });
+      row.querySelector(".qdown").addEventListener("click", ()=>{
+        const c = loadCart();
+        const x = c.items.find(a => String(a.code) === String(it.code));
+        if (x){ x.qty = Math.max(1, Number(x.qty||1)-1); }
+        saveCart(c); render();
+      });
+      row.querySelector(".remove").addEventListener("click", async ()=>{
+        const ok = await confirmDialogCart('Rimuovere questo articolo dal carrello?');
+        if (!ok) return;
+        const c = loadCart(); c.items = c.items.filter(a => String(a.code) !== String(it.code)); saveCart(c); render();
+      });
+
+      $list.appendChild(row);
+    }
+
+    const t = totals(cart.items);
+    $tot.textContent = "Totale: " + (t.sum ? eur(t.sum) : "—");
+    $count.textContent = "Articoli: " + t.qty;
+    // move count to header and hide footer count
+    if ($count) $count.style.display = 'none';
+    if ($hdrCount) $hdrCount.textContent = String(t.qty);
+
+    // header totals (imponibile, iva, totale ordine)
+    try{
+      const imponibile = t.sum || 0;
+      const iva = Math.round((imponibile * VAT_RATE) * 100) / 100;
+      const totale = Math.round((imponibile + iva) * 100) / 100;
+      if ($hdrSubtotal) $hdrSubtotal.textContent = imponibile ? eur(imponibile) : "—";
+      if ($hdrIva) $hdrIva.textContent = iva ? eur(iva) : "—";
+      if ($hdrTotal) $hdrTotal.textContent = totale ? eur(totale) : "—";
+    }catch(e){ /* ignore header if missing */ }
+  }
+
+  const auth = await guardAnyActiveUser();
+  if (!auth) return;
+  if (auth.role === 'client') {
+    CART_KEY = `${LEGACY_CART_KEY}_${auth.userId}`;
+  } else if (auth.role === 'admin' && assistClientId) {
+    CART_KEY = `${LEGACY_CART_KEY}_${assistClientId}`;
+  }
+
+  document.getElementById("btnClear").addEventListener("click", async ()=>{
+    const ok = await confirmDialogCart('Svuotare il carrello?');
+    if (!ok) return; saveCart({items:[]}); render();
+  });
+
+  document.getElementById("btnCheckout").addEventListener("click", ()=>{
+    alert("Checkout demo: qui agganceremo la parte reale più avanti 🙂");
+  });
+
+  // header buttons (if present)
+  const hbClear = document.getElementById("hdrClear");
+  if (hbClear) hbClear.addEventListener("click", async ()=>{ const ok = await confirmDialogCart('Svuotare il carrello?'); if (!ok) return; saveCart({items:[]}); render(); window.scrollTo(0,document.body.scrollTop); });
+  const hbConfirm = document.getElementById("hdrConfirm");
+  if (hbConfirm) hbConfirm.addEventListener("click", ()=>{ openOrderClientModal(); });
+  const hbContinue = document.getElementById("hdrContinue");
+  if (hbContinue) hbContinue.addEventListener("click", ()=>{ try{ localStorage.setItem('pp_cart_force_close','1'); }catch(e){}; history.back(); });
+
+  // Esporto saveCart e render sul global per poterli richiamare dalle integrazioni esterne
+  try{ window.saveCart = saveCart; window.renderCart = render; }catch(e){}
+  render();
+})();
+</script>
+
+<script>
+// Order submit utilities (Supabase-based)
+(async function(){
+  const CLIENTS_KEY = 'pp_clients';
+  const LEGACY_CART_KEY = 'pp_cart_v1';
+  let CART_KEY = LEGACY_CART_KEY;
+  const VAT_RATE = 0.22;
+
+  const urlParams = new URLSearchParams(location.search);
+  const assistClientId = (urlParams.get('as_client') || '').trim();
+
+  const THANK_OVERLAY_ID = 'ppThankYouOverlay';
+
+  const sb = (window.__pp_supabase_client)
+    ? window.__pp_supabase_client
+    : window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+  // Reuse the existing confirm overlay on this page
+  const $cartConfirmOverlay = document.getElementById('cartConfirmOverlay');
+  const $cartConfirmMsg = document.getElementById('cartConfirmMsg');
+  const $cartConfirmYes = document.getElementById('cartConfirmYes');
+  const $cartConfirmNo = document.getElementById('cartConfirmNo');
+
+  function confirmDialog(message){
+    return new Promise(resolve =>{
+      if (!$cartConfirmOverlay) return resolve(window.confirm(message || 'Confermare?'));
+      $cartConfirmMsg.textContent = message || 'Confermare?';
+      $cartConfirmOverlay.style.display = 'flex';
+      $cartConfirmOverlay.setAttribute('aria-hidden','false');
+      const cleanup = ()=>{
+        $cartConfirmOverlay.style.display='none';
+        $cartConfirmOverlay.setAttribute('aria-hidden','true');
+        $cartConfirmYes.removeEventListener('click', onYes);
+        $cartConfirmNo.removeEventListener('click', onNo);
+      };
+      const onYes = ()=>{ cleanup(); resolve(true); };
+      const onNo = ()=>{ cleanup(); resolve(false); };
+      $cartConfirmYes.addEventListener('click', onYes);
+      $cartConfirmNo.addEventListener('click', onNo);
+    });
+  }
+
+  function loadCart(){
+    try{
+      const raw = localStorage.getItem(CART_KEY);
+      const j = raw ? JSON.parse(raw) : {items:[]};
+      if (!j || !Array.isArray(j.items)) return {items:[]};
+      return j;
+    }catch(_){ return {items:[]}; }
+  }
+
+  function totals(items){
+    let qty = 0, sum = 0;
+    for (const it of (items||[])){
+      const q = Math.max(1, Number(it.qty||1));
+      qty += q;
+      const p = Number(String(it.price ?? '').replace(',','.'));
+      if (isFinite(p)) sum += p*q;
+    }
+    sum = Math.round(sum * 100) / 100;
+    const iva = Math.round((sum * VAT_RATE) * 100) / 100;
+    const tot = Math.round((sum + iva) * 100) / 100;
+    return { qty, subtotal: sum, iva, total: tot };
+  }
+
+  let cachedMe = null;
+  async function getMe(){
+    if (cachedMe) return cachedMe;
+    const { data: userData } = await sb.auth.getUser();
+    const user = userData?.user;
+    if (!user) return null;
+    const { data: me } = await sb.from('profiles').select('id, role, is_active, full_name, email').eq('id', user.id).single();
+    if (!me || me.is_active === false) return null;
+    const role = String(me.role || '').toLowerCase();
+    if (role === 'client') CART_KEY = `${LEGACY_CART_KEY}_${me.id}`;
+    else if (role === 'admin' && assistClientId) CART_KEY = `${LEGACY_CART_KEY}_${assistClientId}`;
+    cachedMe = me;
+    return me;
+  }
+
+  function showThankYou(){
+    const overlay = document.getElementById(THANK_OVERLAY_ID);
+    if (!overlay) {
+      alert('✅ Grazie! Ordine eseguito correttamente.');
+      return;
+    }
+    try{
+      const msg = overlay.querySelector('.cart-confirm-msg');
+      if (msg && msg.dataset && msg.dataset.ppThankYouName){
+        msg.textContent = `✅ Grazie ${msg.dataset.ppThankYouName}! Ordine eseguito correttamente.`;
+      }
+    }catch(_){ }
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-hidden','false');
+  }
+
+  function hideThankYou(){
+    const overlay = document.getElementById(THANK_OVERLAY_ID);
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden','true');
+  }
+
+  async function submitOrderToSupabase(payload){
+    let { data: sessionData, error: sessErr } = await sb.auth.getSession();
+    if (sessErr) throw sessErr;
+    let session = sessionData?.session || null;
+    // Se il token è in scadenza, prova a rinfrescarlo prima di chiamare PostgREST
+    try{
+      const expMs = session?.expires_at ? (Number(session.expires_at) * 1000) : 0;
+      if (session && expMs && (Date.now() + 60_000) > expMs) {
+        const { data: refreshed, error: refErr } = await sb.auth.refreshSession();
+        if (!refErr && refreshed?.session) session = refreshed.session;
+      }
+    }catch(_){ }
+
+    const token = session?.access_token;
+    const uid = session?.user?.id;
+    if (!token || !uid) throw new Error('Sessione Supabase non valida (token/uid mancante).');
+
+    function decodeJwtClaims(jwt){
+      try{
+        const part = String(jwt||'').split('.')[1];
+        if (!part) return null;
+        const b64 = part.replace(/-/g,'+').replace(/_/g,'/');
+        const padded = b64 + '==='.slice((b64.length + 3) % 4);
+        const json = decodeURIComponent(atob(padded).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(json);
+      }catch(_){ return null; }
+    }
+    const claims = decodeJwtClaims(token);
+
+    const baseUrl = window.SUPABASE_URL;
+    const anonKey = window.SUPABASE_ANON_KEY;
+    if (!baseUrl || !anonKey) throw new Error('Config Supabase mancante (URL o ANON KEY).');
+
+    // IMPORTANT: i client non hanno policy SELECT su orders_confirmed (archivio admin-only).
+    // Quindi non chiediamo alcuna rappresentazione di ritorno, per evitare che PostgREST
+    // debba leggere/ritornare la riga inserita e fallisca per RLS.
+    const url = `${baseUrl}/rest/v1/orders_confirmed`;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'apikey': anonKey,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await r.text();
+    if (!r.ok) {
+      let msg = text;
+      try{
+        const j = JSON.parse(text);
+        const parts = [];
+        if (j?.message) parts.push(j.message);
+        if (j?.code) parts.push(`code=${j.code}`);
+        if (j?.details) parts.push(`details=${j.details}`);
+        if (j?.hint) parts.push(`hint=${j.hint}`);
+        msg = parts.length ? parts.join(' | ') : (j?.error || text);
+      }catch(_){ }
+
+      if (claims && (claims.sub || claims.role)){
+        msg += `\n(jwt.sub=${claims.sub || '—'}; jwt.role=${claims.role || '—'})`;
+      }
+      msg += `\n(session.uid=${uid})`;
+      throw new Error(msg);
+    }
+
+    return null;
+  }
+
+  async function submitClientOrder(){
+    const me = await getMe();
+    if (!me) {
+      alert('Sessione scaduta. Effettua di nuovo il login.');
+      window.location.href = 'client-login.html';
+      return;
+    }
+    const role = String(me.role || '').toLowerCase();
+    const isAssist = (role === 'admin' && !!assistClientId);
+    if (role !== 'client' && !isAssist) {
+      alert('Accesso non valido.');
+      return;
+    }
+
+    const cart = loadCart();
+    const items = cart.items || [];
+    if (!items.length){
+      alert('Carrello vuoto.');
+      return;
+    }
+    const ok = await confirmDialog('Confermare ordine?');
+    if (!ok) return;
+
+    const t = totals(items);
+    let { data: sessionData } = await sb.auth.getSession();
+    let session = sessionData?.session || null;
+    try{
+      const expMs = session?.expires_at ? (Number(session.expires_at) * 1000) : 0;
+      if (session && expMs && (Date.now() + 60_000) > expMs) {
+        const { data: refreshed, error: refErr } = await sb.auth.refreshSession();
+        if (!refErr && refreshed?.session) session = refreshed.session;
+      }
+    }catch(_){ }
+    const uid = session?.user?.id || null;
+    if (!uid) {
+      alert('Sessione scaduta. Effettua di nuovo il login.');
+      window.location.href = 'client-login.html';
+      return;
+    }
+
+    // In assistenza: l'admin salva l'ordine a nome del cliente selezionato
+    let effectiveClientId = uid;
+    let effectiveClientName = me.full_name || null;
+    let effectiveClientEmail = me.email || null;
+    if (isAssist){
+      effectiveClientId = assistClientId;
+      try{
+        effectiveClientName = (localStorage.getItem('pp_assist_client_name') || '').trim() || null;
+        effectiveClientEmail = (localStorage.getItem('pp_assist_client_email') || '').trim() || null;
+      }catch(_){ }
+    }
+    try{
+      await submitOrderToSupabase({
+        client_id: effectiveClientId,
+        client_name: effectiveClientName,
+        client_email: effectiveClientEmail,
+        total: t.subtotal,
+        items: items,
+        status: 'In Elaborazione'
+      });
+    }catch(e){
+      console.error('Supabase insert orders_confirmed failed', e);
+      const msg = (e && (e.message || e.error_description)) ? (e.message || e.error_description) : String(e);
+      let extra = '';
+      try{
+        if (String(msg).toLowerCase().includes('row-level security')){
+          extra = `\n(uid=${uid || 'null'}; client_id=${effectiveClientId || 'null'}; profile_id=${me?.id || 'null'})`;
+        }
+      }catch(_){ }
+      alert(`Errore invio ordine: ${msg}${extra}`);
+      return;
+    }
+
+    // svuota sempre la key corretta (per-utente) + rerender
+    try{ window.saveCart({items:[]}); }catch(_){ }
+    try{ localStorage.setItem(CART_KEY, JSON.stringify({items:[]})); }catch(_){ }
+    try{ if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){ }
+
+    // personalizza ringraziamento
+    try{
+      const overlay = document.getElementById(THANK_OVERLAY_ID);
+      const msgEl = overlay ? overlay.querySelector('.cart-confirm-msg') : null;
+      if (msgEl && msgEl.dataset) {
+        const thankName = (isAssist ? (effectiveClientName || effectiveClientEmail || '') : (me.full_name || me.email || ''));
+        msgEl.dataset.ppThankYouName = thankName;
+      }
+    }catch(_){ }
+    showThankYou();
+  }
+
+  async function getClients(){
+    // Returns an object { clients: Array, source: 'local'|'static'|'none' }
+    try{
+      const raw = localStorage.getItem(CLIENTS_KEY);
+      if (raw){
+        try{
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length){
+            const mapped = parsed.map(c => ({ id: c.id || c.code || String(c.name||c.email||c), name: c.name || c.full_name || c.email || String(c.id||c) }));
+            return { clients: mapped, source: 'local' };
+          }
+        }catch(e){ console.warn('pp_clients parse error', e); }
+      }
+    }catch(e){ console.warn('pp_clients access error', e); }
+
+    try{
+      const r = await fetch('output/clients.json', {cache: 'no-store'});
+      if (r.ok){
+        const json = await r.json();
+        if (Array.isArray(json) && json.length){
+          const mapped = json.map(c => ({ id: c.id || c.code || c.name, name: c.name || c.full_name || c.email || String(c.id) }));
+          return { clients: mapped, source: 'static' };
+        }
+      }
+    }catch(e){ console.warn('clients.json fetch failed', e); }
+
+    return { clients: [], source: 'none' };
+  }
+
+  async function openOrderClientModal(){
+    const me = await getMe();
+    const role = String(me?.role || '').toLowerCase();
+    const isAssist = (role === 'admin' && !!assistClientId);
+
+    // CLIENT o ADMIN in assistenza: invio diretto ordine + popup ringraziamento
+    if (me && (role === 'client' || isAssist)) {
+      await submitClientOrder();
+      return;
+    }
+
+    // ADMIN (o altro): modal selezione cliente (come prima)
+    const modal = document.getElementById('orderClientModal');
+    const sel = document.getElementById('orderClientSelect');
+    const manual = document.getElementById('orderClientManual');
+    sel.innerHTML = '<option>Caricamento clienti…</option>';
+    document.getElementById('orderClientConfirm').disabled = true;
+    const sourceEl = document.getElementById('orderClientSource');
+    const reloadBtn = document.getElementById('orderClientReload');
+    const openAdminBtn = document.getElementById('orderClientOpenAdmin');
+
+    async function loadAndRender(){
+      sel.innerHTML = '<option>Caricamento clienti…</option>';
+      document.getElementById('orderClientConfirm').disabled = true;
+      const res = await getClients();
+      sel.innerHTML = '';
+      const clients = (res && res.clients) ? res.clients : [];
+      if (clients && clients.length){
+        clients.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+      } else {
+        const o = document.createElement('option'); o.textContent = 'Nessun cliente trovato'; o.disabled = true; sel.appendChild(o);
+      }
+      sourceEl.textContent = 'Fonte: ' + (res.source === 'local' ? 'admin cache (localStorage)' : (res.source === 'static' ? 'file /output/clients.json' : 'non disponibile'));
+      document.getElementById('orderClientConfirm').disabled = false;
+    }
+
+    reloadBtn.addEventListener('click', loadAndRender);
+    openAdminBtn.addEventListener('click', ()=>{ window.open('admin-login.html','_blank'); });
+
+    manual.value = '';
+    await loadAndRender();
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden','false');
+  }
+
+  function closeOrderClientModal(){
+    const modal = document.getElementById('orderClientModal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  async function submitAdminOrder(client){
+    const cart = loadCart();
+    const items = cart.items || [];
+    if (!items.length){ alert('Carrello vuoto.'); return null; }
+    const ok = await confirmDialog('Confermare e archiviare ordine?');
+    if (!ok) return null;
+    const t = totals(items);
+    const payload = {
+      client_id: (client && client.id && String(client.id).includes('-')) ? client.id : null,
+      client_name: client?.name || null,
+      client_email: client?.email || null,
+      total: t.subtotal,
+      items: items,
+      status: 'In Elaborazione'
+    };
+    const res = await submitOrderToSupabase(payload);
+    try{ window.saveCart({items:[]}); if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){ }
+    return res;
+  }
+
+  // bind modal buttons
+  document.getElementById('orderClientCancel').addEventListener('click', ()=>{ closeOrderClientModal(); });
+  document.getElementById('orderClientConfirm').addEventListener('click', async ()=>{
+    const sel = document.getElementById('orderClientSelect');
+    const manual = document.getElementById('orderClientManual');
+    let client = null;
+    if (manual.value && String(manual.value).trim() !== ''){
+      client = { id: 'manual_'+Date.now(), name: String(manual.value).trim() };
+    } else if (sel.value){
+      const res = await getClients();
+      const clients = (res && res.clients) ? res.clients : [];
+      const c = (clients||[]).find(x=>String(x.id) === String(sel.value));
+      client = c ? c : { id: sel.value, name: sel.value };
+    }
+    if (!client){ alert('Seleziona o inserisci un cliente.'); return; }
+
+    // submit order, clear cart, close modal, navigate to orders admin
+    try{
+      await submitAdminOrder(client);
+    }catch(e){
+      console.error(e);
+      alert(e?.message || 'Errore invio ordine.');
+      return;
+    }
+    closeOrderClientModal();
+    try{ window.location.href = 'orders_admin_confermati.html'; }catch(_){ }
+  });
+
+  // expose for other scripts
+  window.openOrderClientModal = openOrderClientModal;
+
+})();
+</script>
+
+<!-- Thank you popup (client) -->
+<div id="ppThankYouOverlay" class="cart-confirm-overlay" role="dialog" aria-hidden="true" style="display:none;">
+  <div class="cart-confirm-box">
+    <div class="cart-confirm-msg" style="font-size:18px">✅ Grazie! Ordine eseguito correttamente.</div>
+    <div class="cart-confirm-actions">
+      <button class="btn primary" id="ppThankYouOk" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const okBtn = document.getElementById('ppThankYouOk');
+    const overlay = document.getElementById('ppThankYouOverlay');
+    if (!okBtn || !overlay) return;
+    okBtn.addEventListener('click', ()=>{
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-hidden','true');
+      try{ window.location.href = 'client.html'; }catch(_){ }
+    });
+  })();
+</script>
+</body>
+</html>

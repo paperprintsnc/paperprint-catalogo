@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login Cliente - PaperPrint CRM</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .btn-green{background:#16a34a;color:#fff;border:none;border-radius:14px;padding:12px 20px;font-size:16px;line-height:1.1;font-weight:800;box-shadow:0 8px 26px rgba(22,163,74,0.14);cursor:pointer}
+    .btn-green:hover{filter:brightness(.95)}
+    .btn-blue{background:#0b76ff;color:#fff;border:none;border-radius:14px;padding:12px 20px;font-size:16px;line-height:1.1;font-weight:800;box-shadow:0 8px 26px rgba(11,118,255,0.12);cursor:pointer}
+    .btn-blue:hover{filter:brightness(.95)}
+    .login-actions{display:flex;gap:12px;align-items:center}
+    .remember-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:700;color:#0b1220}
+    .remember-row input[type=checkbox]{width:18px;height:18px}
+  </style>
+</head>
+<body id="page-client-login">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo-link">
+        <div class="logo">
+          <img src="assets/logo.png" alt="PaperPrint">
+        </div>
+        <span class="brand-text">PaperPrint</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container auth-card">
+    <div class="logo">
+      <img src="assets/logo.png" alt="PaperPrint">
+    </div>
+
+    <h2>Accesso Cliente</h2>
+    <p class="muted">Inserisci le tue credenziali per accedere alla dashboard cliente.</p>
+
+    <!-- IMPORTANTISSIMO: niente method="post" su GitHub Pages -->
+    <form id="client-login-form" class="form" autocomplete="on">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required>
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+      <div class="form-actions login-actions" style="margin-bottom:6px">
+        <button type="submit" class="btn-green" id="btnLogin">Accedi</button>
+        <button type="button" class="btn-blue" id="btnHome">Torna alla Home</button>
+      </div>
+
+      <div class="remember-row">
+        <input id="client-remember" type="checkbox"> <label for="client-remember">Memorizza le Credenziali</label>
+      </div>
+
+      <p id="msg" class="error" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script>
+    // ===== CONFIG SUPABASE (public) =====
+    const SUPABASE_URL = "https://fyddanuilbuwndeeihqw.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5ZGRhbnVpbGJ1d25kZWVpaHF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxNzU2OTAsImV4cCI6MjA4Mjc1MTY5MH0.bwOGjCU58jG6eqaxm2K_UayufORUQuWyu5TWbNAFjSo";
+
+    function setMsg(text) {
+      const el = document.getElementById("msg");
+      if (el) el.textContent = text || "";
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (!SUPABASE_URL.startsWith("http") || SUPABASE_ANON_KEY.startsWith("INCOLLA_")) {
+        setMsg("Config mancante: inserisci SUPABASE_URL e SUPABASE_ANON_KEY in client-login.html");
+        return;
+      }
+
+      const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // Se già loggato → vai in dashboard
+      const { data } = await sb.auth.getSession();
+      if (data?.session) {
+        window.location.href = "client.html";
+        return;
+      }
+
+      const form = document.getElementById("client-login-form");
+      const btnHome = document.getElementById("btnHome");
+      const rememberEl = document.getElementById('client-remember');
+
+      btnHome?.addEventListener('click', ()=>{ window.location.href = 'index.html'; });
+
+      // Populate saved client creds if present
+      try{
+        const raw = localStorage.getItem('pp_client_creds');
+        if (raw){
+          const obj = JSON.parse(raw);
+          if (obj && obj.email) document.getElementById('email').value = obj.email;
+          if (obj && obj.password) document.getElementById('password').value = obj.password;
+          if (rememberEl) rememberEl.checked = true;
+        }
+      }catch(e){ /* ignore */ }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault(); // ✅ elimina il 405 (niente POST)
+        setMsg("");
+
+        const email = (document.getElementById("email").value || "").trim();
+        const password = document.getElementById("password").value || "";
+
+        if (!email || !password) {
+          setMsg("Compila email e password.");
+          return;
+        }
+
+        const btn = document.getElementById("btnLogin");
+        if (btn) btn.disabled = true;
+
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (btn) btn.disabled = false;
+
+        if (error) {
+          setMsg(error.message || "Login non riuscito.");
+          return;
+        }
+
+        // persist client credentials if requested
+        try{
+          if (rememberEl && rememberEl.checked){
+            localStorage.setItem('pp_client_creds', JSON.stringify({ email: email, password: password }));
+          } else {
+            localStorage.removeItem('pp_client_creds');
+          }
+        }catch(e){ console.warn('Unable to persist client creds', e); }
+
+        window.location.href = "client.html";
+      });
+    });
+  </script>
+</body>
+</html>

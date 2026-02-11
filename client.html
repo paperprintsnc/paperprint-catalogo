@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catalogo Cliente - PaperPrint CRM</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js"></script>
+  <style>
+    :root{--bg:#f3f6fb;--card:#fff;--text:#111827;--muted:#6b7280;--blue:#1e73ff;--red:#dc2626}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);
+      background:linear-gradient(#f7f9ff,var(--bg))}
+
+    /* Header (same structure as catalogo_admin) */
+    .topbar{background:var(--card);box-shadow:0 1px 0 rgba(16,24,40,.06)}
+    .topbar-inner{max-width:1320px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.2px;text-decoration:none;color:inherit}
+    .brand img{width:44px;height:44px;border-radius:12px;object-fit:contain;background:#fff}
+    .brand span{font-size:18px;color:#0b5cff}
+    .actions{display:flex;gap:12px;align-items:center}
+    .searchbar{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid rgba(16,24,40,.10);border-radius:14px;padding:8px 10px;box-shadow:0 10px 18px rgba(16,24,40,.06)}
+    .searchbar input{border:0;outline:none;min-width:320px;max-width:520px;width:34vw;font-weight:700;font-size:14px;color:var(--text)}
+    .searchbar input::placeholder{color:var(--muted);font-weight:700}
+    @media (max-width:900px){
+      .actions{flex-wrap:wrap;justify-content:flex-end}
+      .searchbar{width:100%}
+      .searchbar input{min-width:0;width:100%}
+    }
+
+    .btn{border:0;background:var(--blue);color:#fff;padding:10px 18px;border-radius:12px;font-weight:800;cursor:pointer;
+      box-shadow:0 10px 18px rgba(30,115,255,.18);text-decoration:none;display:inline-flex;align-items:center;gap:10px;line-height:1}
+    .btn:active{transform:translateY(1px)}
+    .btn-secondary{border:1px solid rgba(16,24,40,.10);background:#fff;color:var(--blue);box-shadow:none}
+
+    /* Cart button + badge */
+    .btn-cart{background:#ffd700;color:#111827;box-shadow:0 10px 18px rgba(245,158,11,.10)}
+    .cart-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#111827;color:#fff;font-size:12px;font-weight:900}
+
+    /* Cart popover (same vibe as categoria.html) */
+    .pp-cart-popover{position:fixed;top:74px;right:18px;width:360px;max-width:calc(100vw - 24px);
+      background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:16px;box-shadow:0 18px 60px rgba(2,6,23,.18);
+      z-index:10000;overflow:hidden;display:none}
+    .pp-cart-popover.open{display:block}
+    .pp-cart-popover-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+      background:linear-gradient(180deg, rgba(96,165,250,.35), rgba(255,255,255,0));border-bottom:1px solid rgba(15,23,42,.08)}
+    .pp-cart-popover-title{font-weight:900;color:#0f172a}
+    .pp-cart-popover-x{width:34px;height:34px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#fff;cursor:pointer;font-size:16px;line-height:1}
+    .pp-cart-popover-body{padding:10px 12px}
+    .pp-cart-popover-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding-right:6px}
+    .pp-cart-popover-empty{color:#64748b;font-weight:700;padding:8px 4px}
+    .pp-cart-popover-row{display:flex;gap:10px;align-items:center;padding:8px 6px;border-radius:12px}
+    .pp-cart-popover-row:hover{background:rgba(2,6,23,.04)}
+    .pp-cart-popover-thumb{width:46px;height:46px;border-radius:12px;background:rgba(2,6,23,.04);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto;border:1px solid rgba(15,23,42,.08)}
+    .pp-cart-popover-thumb img{width:100%;height:100%;object-fit:cover}
+    .pp-cart-popover-meta{min-width:0;flex:1}
+    .pp-cart-popover-name{font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pp-cart-popover-sub{display:flex;gap:10px;align-items:center;font-size:12px;color:#64748b;margin-top:2px}
+    .pp-cart-popover-price{font-weight:900;color:#334155}
+    .pp-cart-popover-del{width:30px;height:30px;border-radius:10px;border:1px solid rgba(15,23,42,.12);background:#fff;cursor:pointer;flex:0 0 auto}
+    .pp-cart-popover-foot{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px;border-top:1px solid rgba(15,23,42,.08);background:rgba(248,250,252,.8)}
+    .pp-cart-popover-clear{border:1px solid rgba(15,23,42,.16);background:#fff;border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer}
+    .pp-cart-popover-open{text-decoration:none;background:#2563eb;color:#fff;border-radius:12px;padding:10px 12px;font-weight:900}
+
+    /* Main (same as catalogo_admin) */
+    .container{max-width:1320px;margin:0 auto;padding:40px 20px 26px}
+    .title{display:flex;align-items:center;justify-content:center;gap:14px;margin:38px 0 10px}
+    .title svg{width:52px;height:52px;flex:0 0 auto;filter:drop-shadow(0 8px 10px rgba(16,24,40,.08))}
+    h1{text-align:center;font-size:54px;margin:0;letter-spacing:.2px}
+    .subtitle{text-align:center;color:var(--muted);font-weight:800;margin:0 0 18px}
+    .cats-wrap{margin:0 auto;display:flex;justify-content:center}
+    .cats-grid{width:100%;max-width:1240px;display:grid;grid-template-columns:repeat(4,minmax(260px,1fr));gap:18px 34px;padding:28px 10px;align-items:stretch}
+    .cat-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-decoration:none;background:linear-gradient(#f7f9ff,var(--bg));border-radius:14px;padding:14px 14px 12px;min-height:86px}
+    .cat-tile:hover{box-shadow:0 14px 26px rgba(16,24,40,.08)}
+    .cat-name{color:var(--muted);font-size:16px;font-weight:900;line-height:1.15;white-space:normal;word-break:break-word;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;min-height:34px}
+    .cat-icon{width:60px;height:60px;border-radius:8px;object-fit:cover;flex:0 0 40px;background:#ffffff00}
+    .cat-count{margin-top:6px;color:var(--red);font-size:15px;font-weight:900;line-height:1;width:100%;display:flex;align-items:center;justify-content:center}
+    .footer-report{text-align:center;margin-top:70px;font-size:12px;color:#111827;font-weight:800;padding:0 10px}
+    .hint{text-align:center;color:var(--muted);margin-top:6px;font-size:13px;padding:0 10px}
+    .warn{text-align:center;color:#b91c1c;font-weight:900;margin-top:10px}
+    @media (max-width:1120px){h1{font-size:46px}.cats-grid{grid-template-columns:repeat(2,minmax(280px,1fr))}}
+    @media (max-width:560px){h1{font-size:34px}.brand span{font-size:16px}.title svg{width:40px;height:40px}.cats-grid{grid-template-columns:1fr;max-width:520px}.cat-name{font-size:16px}}
+
+    /* Toast */
+    .pp-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#111827;color:#fff;
+      padding:10px 14px;border-radius:14px;font-weight:900;box-shadow:0 18px 60px rgba(2,6,23,.18);z-index:20000;display:none}
+    .pp-toast.show{display:block}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="client.html" aria-label="Catalogo Cliente">
+        <img src="assets/logo.png" alt="PaperPrint" onerror="this.style.display='none'">
+        <span id="welcomeText">Benvenuto: —</span>
+      </a>
+
+      <div class="actions">
+        <div class="searchbar" role="search" aria-label="Cerca articolo">
+          <input id="articleSearch" type="search" placeholder="Cerca per SKU o descrizione…">
+          <button class="btn" id="btnSearch" type="button">Cerca Articolo</button>
+        </div>
+        <button class="btn btn-cart" id="btnCart" type="button" title="Carrello">
+          🛒 Carrello <span class="cart-badge" id="cartBadge">0</span>
+        </button>
+        <button class="btn btn-secondary" id="btnLogout" type="button">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="title">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#1e73ff" d="M10 4l2 2h8a2 2 0 0 1 2 2v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V6a2 2 0 0 1 2-2h6z"/>
+        <path fill="#0b5cff" opacity=".25" d="M2 9h20v9a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V9z"/>
+        <path fill="#ffffff" opacity=".9" d="M6.5 12.2h6.8a.8.8 0 1 1 0 1.6H6.5a.8.8 0 1 1 0-1.6zm0 3h11a.8.8 0 1 1 0 1.6h-11a.8.8 0 1 1 0-1.6z"/>
+      </svg>
+      <h1>Catalogo Prodotti</h1>
+    </div>
+
+    <div class="subtitle" id="subTitle">Categorie (conteggio dal feed)</div>
+    <div class="cats-wrap">
+      <div class="cats-grid" id="catsGrid"></div>
+    </div>
+
+    <div class="footer-report" id="reportLine">Ultimo Aggiornamento: in attesa…</div>
+    <div class="hint" id="reportHint">(feed da output/feed_prodotti.json)</div>
+    <div class="warn" id="warnLine" style="display:none;"></div>
+  </main>
+
+  <div class="pp-cart-popover" id="cartPopover" role="dialog" aria-hidden="true">
+    <div class="pp-cart-popover-head">
+      <div class="pp-cart-popover-title">Carrello</div>
+      <button class="pp-cart-popover-x" id="cartPopClose" type="button">✕</button>
+    </div>
+    <div class="pp-cart-popover-body">
+      <div class="pp-cart-popover-list" id="cartPopList"></div>
+    </div>
+    <div class="pp-cart-popover-foot">
+      <button class="pp-cart-popover-clear" id="cartPopClear" type="button">Svuota</button>
+      <a class="pp-cart-popover-open" href="carrello.html">Apri carrello</a>
+    </div>
+  </div>
+
+  <div class="pp-toast" id="toast" aria-live="polite"></div>
+
+  <script>
+  (function(){
+    const FEED_JSON_PATH = 'output/feed_prodotti.json';
+    const FEED_CSV_PATH  = 'output/feed_prodotti.csv';
+    const STATUS_JSON_PATH = 'output/feed_status.json';
+    const LIMIT_TO_TOP_N = 16;
+    const LEGACY_CART_KEY = 'pp_cart_v1';
+    let CART_KEY = LEGACY_CART_KEY;
+
+    const grid = document.getElementById('catsGrid');
+    const report = document.getElementById('reportLine');
+    const warnLine = document.getElementById('warnLine');
+    const searchInput = document.getElementById('articleSearch');
+    const searchBtn = document.getElementById('btnSearch');
+    const toastEl = document.getElementById('toast');
+    const welcomeEl = document.getElementById('welcomeText');
+    const btnLogout = document.getElementById('btnLogout');
+
+    const cartBadge = document.getElementById('cartBadge');
+    const btnCart = document.getElementById('btnCart');
+    const pop = document.getElementById('cartPopover');
+    const popClose = document.getElementById('cartPopClose');
+    const popClear = document.getElementById('cartPopClear');
+    const popList = document.getElementById('cartPopList');
+
+    const sb = (window.__pp_supabase_client)
+      ? window.__pp_supabase_client
+      : window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+    const urlParams = new URLSearchParams(location.search);
+    const ASSIST_CLIENT_ID = (urlParams.get('as_client') || '').trim();
+    let IS_ASSIST = false;
+    let EFFECTIVE_CLIENT_ID = '';
+    let ASSIST_QS = '';
+
+    function setClientCartKey(userId){
+      CART_KEY = `${LEGACY_CART_KEY}_${userId}`;
+    }
+
+    function esc(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+
+    function showToast(text){
+      if (!toastEl) return;
+      toastEl.textContent = text || '';
+      toastEl.classList.add('show');
+      setTimeout(()=>toastEl.classList.remove('show'), 2000);
+    }
+
+    function loadCart(){
+      try{
+        const raw = localStorage.getItem(CART_KEY);
+        const j = raw ? JSON.parse(raw) : { items: [] };
+        if (!j || !Array.isArray(j.items)) return { items: [] };
+        return j;
+      }catch(_){ return { items: [] }; }
+    }
+
+    function saveCart(cart){
+      try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(_){ }
+    }
+
+    function cartCount(){
+      const c = loadCart();
+      let qty = 0;
+      for (const it of (c.items||[])) qty += Math.max(1, Number(it.qty||1));
+      return qty;
+    }
+
+    function updateCartBadge(){
+      if (cartBadge) cartBadge.textContent = String(cartCount());
+    }
+
+    function openPopover(){
+      renderPopover();
+      pop.classList.add('open');
+      pop.setAttribute('aria-hidden','false');
+    }
+
+    function closePopover(){
+      pop.classList.remove('open');
+      pop.setAttribute('aria-hidden','true');
+    }
+
+    function renderPopover(){
+      const cart = loadCart();
+      popList.innerHTML = '';
+      const items = cart.items || [];
+      if (!items.length){
+        popList.innerHTML = '<div class="pp-cart-popover-empty">Carrello vuoto.</div>';
+        updateCartBadge();
+        return;
+      }
+      for (const it of items.slice(0, 12)){
+        const row = document.createElement('div');
+        row.className = 'pp-cart-popover-row';
+        const img = it.img ? `<img src="${esc(it.img)}" alt="">` : `<div class="pp-cart-popover-ph"></div>`;
+        row.innerHTML = `
+          <div class="pp-cart-popover-thumb">${img}</div>
+          <div class="pp-cart-popover-meta">
+            <div class="pp-cart-popover-name" title="${esc(it.name||'')}">${esc(it.name||'')}</div>
+            <div class="pp-cart-popover-sub">
+              <span>x${esc(it.qty||1)}</span>
+              <span class="pp-cart-popover-price">${esc(it.price!=null ? String(it.price)+' €' : '—')}</span>
+            </div>
+          </div>
+          <button class="pp-cart-popover-del" type="button" title="Rimuovi" aria-label="Rimuovi">✕</button>
+        `;
+        row.querySelector('button.pp-cart-popover-del').addEventListener('click', ()=>{
+          const c = loadCart();
+          c.items = (c.items||[]).filter(x => String(x.code) !== String(it.code));
+          saveCart(c);
+          renderPopover();
+        });
+        popList.appendChild(row);
+      }
+      if (items.length > 12){
+        const more = document.createElement('div');
+        more.className = 'pp-cart-popover-empty';
+        more.textContent = `+ altri ${items.length - 12} articoli…`;
+        popList.appendChild(more);
+      }
+      updateCartBadge();
+    }
+
+    btnCart?.addEventListener('click', ()=>{
+      if (pop.classList.contains('open')) closePopover(); else openPopover();
+    });
+    popClose?.addEventListener('click', closePopover);
+    popClear?.addEventListener('click', ()=>{ saveCart({items:[]}); renderPopover(); });
+    document.addEventListener('click', (e)=>{
+      if (!pop.classList.contains('open')) return;
+      if (e.target.closest('#cartPopover') || e.target.closest('#btnCart')) return;
+      closePopover();
+    });
+
+    // ===== Feed utils (ported from catalogo_admin) =====
+    function slugify(str) {
+      return String(str || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+    }
+    function formatInt(n) {
+      try { return new Intl.NumberFormat('it-IT').format(Number(n) || 0); }
+      catch { return String(Number(n) || 0); }
+    }
+    function splitCSVLine(line, sep) {
+      const out = [];
+      let cur = '';
+      let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+          else { inQ = !inQ; }
+        } else if (ch === sep && !inQ) {
+          out.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (!lines.length) return [];
+      const headerLine = lines[0];
+      const sep = (headerLine.match(/;/g)?.length || 0) >= (headerLine.match(/,/g)?.length || 0) ? ';' : ',';
+      const rows = [];
+      const headers = splitCSVLine(headerLine, sep).map(h => h.trim());
+      for (let i = 1; i < lines.length; i++) {
+        const cols = splitCSVLine(lines[i], sep);
+        if (!cols.length) continue;
+        const row = {};
+        for (let c = 0; c < headers.length; c++) {
+          const k = headers[c] || `col_${c}`;
+          row[k] = (cols[c] ?? '').trim();
+        }
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    async function loadItemsFromFeed(){
+      try{
+        const r = await fetch(FEED_JSON_PATH, { cache: 'no-store' });
+        if (r.ok){
+          const j = await r.json();
+          if (Array.isArray(j)) return j;
+          if (j && Array.isArray(j.items)) return j.items;
+        }
+      }catch(_){ }
+      const r2 = await fetch(FEED_CSV_PATH, { cache: 'no-store' });
+      if (!r2.ok) return [];
+      const txt = await r2.text();
+      return parseCSV(txt);
+    }
+
+    function normalizeItem(o){
+      const get=(...keys)=>{for (const k of keys){ if (o && o[k]!=null && String(o[k]).trim()!=='') return o[k]; } return '';};
+      return {
+        code: String(get('ItemCode','ItemKey','Code','SKU','sku')||'').trim(),
+        name: String(get('Descrizione','Description','Name','Titolo','title')||'').trim(),
+        cat:  String(get('MacroCategoria','Categoria','Category','Group','GroupName','group')||'').trim(),
+      };
+    }
+
+    function bestMatch(items, q){
+      const query = String(q||'').trim().toLowerCase();
+      if (!query) return null;
+      let best = null;
+      let bestScore = -1;
+
+      for (const raw of items){
+        const it = normalizeItem(raw);
+        if (!it.code && !it.name) continue;
+        const code = (it.code||'').toLowerCase();
+        const name = (it.name||'').toLowerCase();
+        let score = 0;
+        if (code === query) score = 100;
+        else if (code.includes(query) && query.length >= 3) score = 70;
+        else if (name.includes(query) && query.length >= 3) score = 40;
+        if (score > bestScore){
+          bestScore = score;
+          best = it;
+        }
+      }
+      return bestScore > 0 ? best : null;
+    }
+
+    async function handleArticleSearch(){
+      const q = (searchInput?.value || '').trim();
+      if (!q) return;
+      searchBtn.disabled = true;
+      try{
+        const items = await loadItemsFromFeed();
+        const found = bestMatch(items, q);
+        if (!found || !found.cat){
+          showToast('Nessun articolo trovato');
+          return;
+        }
+        showToast(`😊 Trovato in: ${found.cat}`);
+        setTimeout(()=>{
+          const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
+          window.location.href = `categoria_client.html?cat=${encodeURIComponent(found.cat)}&q=${encodeURIComponent(q)}${extra}`;
+        }, 2000);
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    searchBtn?.addEventListener('click', handleArticleSearch);
+    searchInput?.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); handleArticleSearch(); } });
+
+    async function loadFeedStatus(){
+      try{
+        const r = await fetch(STATUS_JSON_PATH, { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      }catch(_){ return null; }
+    }
+
+    function renderCategories(items){
+      // count per category
+      const counts = new Map();
+      for (const raw of items){
+        const it = normalizeItem(raw);
+        if (!it.cat) continue;
+        counts.set(it.cat, (counts.get(it.cat) || 0) + 1);
+      }
+      const cats = Array.from(counts.entries()).map(([name, count])=>({ name, count }))
+        .sort((a,b)=> b.count - a.count);
+
+      const shown = cats.slice(0, LIMIT_TO_TOP_N);
+      grid.innerHTML = '';
+      for (const c of shown){
+        const a = document.createElement('a');
+        a.className = 'cat-tile';
+        const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
+        a.href = `categoria_client.html?cat=${encodeURIComponent(c.name)}${extra}`;
+        a.innerHTML = `
+          <div class="cat-name">
+            <img class="cat-icon" src="img/${esc(slugify(c.name))}.png" alt="" onerror="this.style.display='none'">
+            <span>${esc(c.name)}</span>
+          </div>
+          <div class="cat-count">${formatInt(c.count)} articoli</div>
+        `;
+        grid.appendChild(a);
+      }
+
+      // show subtitle with total
+      const totalCats = cats.length;
+      const totalItems = items.length;
+      const st = document.getElementById('subTitle');
+      if (st) st.textContent = `Categorie: ${formatInt(totalCats)} • Articoli: ${formatInt(totalItems)}`;
+    }
+
+    async function guardAndInit(){
+      // guard
+      const { data: userData } = await sb.auth.getUser();
+      const user = userData?.user;
+      if (!user){
+        window.location.href = 'client-login.html';
+        return;
+      }
+
+      const { data: me } = await sb.from('profiles').select('role,is_active,full_name,email').eq('id', user.id).single();
+      if (!me || me.is_active === false){
+        try{ await sb.auth.signOut(); }catch(_){ }
+        window.location.href = 'client-login.html';
+        return;
+      }
+
+      const role = String(me.role || '').toLowerCase();
+      IS_ASSIST = (role === 'admin' && !!ASSIST_CLIENT_ID);
+
+      if (role === 'client'){
+        // Non permettere ai client di forzare as_client diverso dal proprio
+        if (ASSIST_CLIENT_ID && String(ASSIST_CLIENT_ID) !== String(user.id)){
+          window.location.href = 'client.html';
+          return;
+        }
+        EFFECTIVE_CLIENT_ID = user.id;
+      } else if (role === 'admin'){
+        if (!ASSIST_CLIENT_ID){
+          window.location.href = 'admin.html';
+          return;
+        }
+        EFFECTIVE_CLIENT_ID = ASSIST_CLIENT_ID;
+      } else {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      ASSIST_QS = IS_ASSIST ? `?as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
+
+      // carrello per-utente (in assistenza: per il cliente selezionato)
+      setClientCartKey(EFFECTIVE_CLIENT_ID);
+
+      // Preserva as_client nei link base
+      try{
+        const brandLink = document.querySelector('a.brand[href="client.html"]');
+        if (brandLink) brandLink.setAttribute('href', `client.html${ASSIST_QS}`);
+        const cartOpen = document.querySelector('a.pp-cart-popover-open[href="carrello.html"]');
+        if (cartOpen) cartOpen.setAttribute('href', `carrello.html${ASSIST_QS}`);
+      }catch(_){ }
+
+      // Welcome: in assistenza mostra il cliente selezionato
+      let assistedName = '';
+      if (IS_ASSIST){
+        try{ assistedName = (localStorage.getItem('pp_assist_client_name') || '').trim(); }catch(_){ }
+      }
+      const displayName = (IS_ASSIST ? (assistedName || 'Cliente') : (me.full_name || me.email || 'Cliente')).trim();
+      if (welcomeEl) welcomeEl.textContent = `Benvenuto: ${displayName}`;
+
+      btnLogout?.addEventListener('click', async ()=>{
+        try{ await sb.auth.signOut(); }catch(_){ }
+        window.location.href = 'index.html';
+      });
+
+      updateCartBadge();
+
+      // load feed
+      const items = (await loadItemsFromFeed());
+      renderCategories(items);
+      const status = await loadFeedStatus();
+      if (status && report){
+        report.textContent = `Ultimo Aggiornamento: ${status.updated_at || status.updatedAt || '—'}`;
+      } else if (report){
+        report.textContent = 'Ultimo Aggiornamento: —';
+      }
+    }
+
+    // keep badge updated
+    window.addEventListener('storage', (e)=>{ if (e.key === CART_KEY) updateCartBadge(); });
+
+    guardAndInit().catch((e)=>{
+      console.error(e);
+      if (warnLine){ warnLine.style.display='block'; warnLine.textContent='Errore caricamento catalogo.'; }
+    });
+  })();
+  </script>
+</body>
+</html>
