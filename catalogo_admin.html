@@ -401,7 +401,7 @@
       // link unico: categoria.html?cat=<NomeCategoria>
       const url = `categoria.html?cat=${encodeURIComponent(c.name)}`;
       const slug = slugify(c.name) || 'default';
-      const iconPath = `img/category-icons/${slug}.svg`;
+      const iconPath = `img/category-icons/${slug}.png`;
       // include data attributes so we can resolve multiple file name candidates via JS
       return `
         <a class="cat-tile" href="${url}" title="Apri ${safeName}">
@@ -489,4 +489,5 @@
 </script>
 </body>
 </html>
+
 
