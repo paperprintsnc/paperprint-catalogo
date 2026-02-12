@@ -452,7 +452,7 @@
       const name = img.dataset.name || '';
       const candidates = [];
       // prefer category-icons svg/png
-     // if (slug) candidates.push(`img/category-icons/${slug}.svg`);
+//      if (slug) candidates.push(`img/category-icons/${slug}.svg`);
       if (slug) candidates.push(`img/category-icons/${slug}.png`);
       // try flat img folder variations
       if (name) candidates.push(`img/${encodeURIComponent(name)}.png`);
@@ -489,4 +489,3 @@
 </script>
 </body>
 </html>
-
