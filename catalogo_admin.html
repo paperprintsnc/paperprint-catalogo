@@ -458,7 +458,7 @@
       if (name) candidates.push(`img/${encodeURIComponent(name)}.png`);
       if (slug) candidates.push(`img/${slug}.png`);
       // fallback to default
-      candidates.push('img/category-icons/default.png');
+      candidates.push('img/category-icons/default.svg');
 
       (function tryNext(i){
         if (i >= candidates.length) return;
@@ -489,5 +489,6 @@
 </script>
 </body>
 </html>
+
 
 
