@@ -11,6 +11,7 @@
     body{height:100vh;overflow:hidden}
     .container{max-width:1200px;margin:0 auto;padding:0 18px}
 
+    /* Fixed header + fixed column band */
     .site-header{position:fixed;top:0;left:0;right:0;z-index:1100;background:#fff;box-shadow:0 6px 20px rgba(2,6,23,0.06)}
     .site-header .header-inner{max-width:1200px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
     .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
@@ -24,10 +25,12 @@
     .header-bottom table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:1rem;min-width:0}
     .header-bottom th{padding:10px 8px;font-weight:900;color:#0b1220;text-align:left;background:transparent;border-bottom:none}
     .header-bottom th:last-child{text-align:right}
+    /* Forza allineamento: Data / Totale / Stato a sinistra */
     .header-bottom th:nth-child(3),
     .header-bottom th:nth-child(4),
     .header-bottom th:nth-child(5){text-align:left}
 
+    /* Scrollable body */
     main{position:fixed;top:calc(var(--orders-header-h, 72px) + var(--orders-cols-h, 54px));left:0;right:0;bottom:0}
     .page-body{height:100%;padding:0}
     .table-responsive{height:100%;overflow-y:auto;overflow-x:hidden}
@@ -35,16 +38,20 @@
     table{width:100%;border-collapse:collapse;table-layout:fixed}
     td{padding:10px 8px;border-bottom:1px solid rgba(15,23,42,.06);text-align:left;vertical-align:middle}
     td:last-child{text-align:right;white-space:nowrap}
+    /* Forza allineamento: Data / Totale / Stato a sinistra */
     #ordersTable td:nth-child(3),
     #ordersTable td:nth-child(4),
     #ordersTable td:nth-child(5){text-align:left}
     tbody tr:nth-child(odd) td{background:#ffffff}
     tbody tr:nth-child(even) td{background:#f1f5f9}
 
+    /* Troncamenti per evitare overlap */
     td:nth-child(1), td:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     td:nth-child(3), td:nth-child(4), td:nth-child(5){white-space:nowrap}
+    /* "Blindatura" Cliente: se contiene stringhe lunghissime non rompe layout */
     td:nth-child(1){max-width:0}
 
+    /* Mobile: torna scroll normale */
     @media (max-width: 980px){
       body{height:auto;overflow:auto}
       .site-header{position:sticky}
@@ -60,6 +67,7 @@
     .modal-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:12000}
     .modal-box{background:#fff;padding:16px;border-radius:12px;max-width:900px;width:96%;max-height:80vh;overflow:auto}
 
+    /* FIX: bottoni trasparenti (override forte rispetto a assets/style.css) */
     #page-orders-admin .btn{
       background:#fff !important;
       color:#0b1220 !important;
@@ -200,17 +208,6 @@
         return 'In Elaborazione';
       }
 
-      function isTrasmesso(o){
-        const st = String(orderStatus(o) || '').trim().toLowerCase();
-        return st === 'trasmesso' || o?.transmitted === true || !!o?.transmitted_at;
-      }
-
-      function orderNoBase(o){
-        return (o.order_no != null && o.order_no !== '')
-          ? String(o.order_no).padStart(6,'0')
-          : String(o.number || o.id || '');
-      }
-
       function loadOrdersFallback(){
         try{ return JSON.parse(localStorage.getItem(ORD_KEY) || '[]'); }catch(_){ return []; }
       }
@@ -235,7 +232,7 @@
           const tr = document.createElement('tr');
           const dt = new Date(o.created_at || o.date || '');
           const clientName = String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
-          const orderNo = orderNoBase(o);
+          const orderNo = (o.order_no != null && o.order_no !== '') ? String(o.order_no).padStart(6,'0') : String(o.number || o.id || '');
           const totalText = (o.total != null && o.total !== '') ? eur(o.total) : '—';
           const dateText = dt && !isNaN(dt.getTime()) ? dt.toLocaleString() : '';
           const statusText = orderStatus(o);
@@ -308,27 +305,22 @@
 
       function updateTransmitButtonState(){
         if (!omTransmit) return;
-        const isDone = currentOrder ? isTrasmesso(currentOrder) : false;
-        omTransmit.disabled = !!isDone;
-        omTransmit.textContent = isDone ? 'Trasmesso' : 'Trasmetti';
-      }
-
-      function updateModalTitle(){
-        if (!currentOrder) return;
-        const base = orderNoBase(currentOrder);
-        const suffixD = isTrasmesso(currentOrder) ? 'D' : '';
-        const clientName = String(currentOrder.client_name || (currentOrder.client && currentOrder.client.name) || currentOrder.client_email || '').trim();
-        omTitle.textContent = `Ordine ${base}${suffixD}${clientName ? ' — ' + clientName : ''}`;
+        const status = currentOrder ? String(orderStatus(currentOrder) || '').trim().toLowerCase() : '';
+        const isTrasmesso = status === 'trasmesso';
+        omTransmit.disabled = !!isTrasmesso;
+        omTransmit.textContent = isTrasmesso ? 'Trasmesso' : 'Trasmetti';
       }
 
       function openOrderModal(id){
         const o = (currentOrders || []).find(x=>String(x.id)===String(id));
         if (!o) return alert('Ordine non trovato');
         currentOrder = o;
-
-        updateModalTitle();
-
+        const orderNo = (o.order_no != null && o.order_no !== '') ? String(o.order_no).padStart(6,'0') : String(o.number || o.id || '');
+        const clientName = String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
         const created = o.created_at || o.date;
+
+        omTitle.textContent = `Ordine ${orderNo}${clientName ? ' — ' + clientName : ''}`;
+
         let html = `<div><strong>Data:</strong> ${created ? new Date(created).toLocaleString() : ''}</div>`;
         html += `<div><strong>Totale:</strong> ${eur(o.total)}</div>`;
         html += `<h4 style="margin-top:12px">Articoli</h4>`;
@@ -382,8 +374,7 @@
             currentOrder.status = 'Trasmesso';
 
             render();
-            updateModalTitle();          // <-- aggiunge la D nel titolo
-            updateTransmitButtonState(); // <-- disabilita il bottone
+            updateTransmitButtonState();
             alert('Ordine trasmesso');
           }catch(e){
             console.error(e);
