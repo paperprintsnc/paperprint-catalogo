@@ -66,6 +66,22 @@
     .order-detail{white-space:pre-wrap;font-family:monospace;font-size:13px}
     .modal-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:12000}
     .modal-box{background:#fff;padding:16px;border-radius:12px;max-width:900px;width:96%;max-height:80vh;overflow:auto}
+
+    /* FIX: bottoni trasparenti (override forte rispetto a assets/style.css) */
+    #page-orders-admin .btn{
+      background:#fff !important;
+      color:#0b1220 !important;
+      border:1px solid rgba(15,23,42,.12) !important;
+    }
+    #page-orders-admin .btn.primary{
+      background:#2563eb !important;
+      color:#fff !important;
+      border-color:#2563eb !important;
+    }
+    #page-orders-admin .btn:disabled{
+      opacity:.6;
+      cursor:not-allowed;
+    }
   </style>
 </head>
 <body id="page-orders-admin">
@@ -129,7 +145,14 @@
 
   <div id="orderModal" class="modal-overlay" role="dialog" aria-hidden="true">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center"><h3 id="omTitle">Ordine</h3><div><button id="omRestore" class="btn">Ripristina nel carrello</button> <button id="omClose" class="btn">Chiudi</button></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="omTitle">Ordine</h3>
+        <div>
+          <button id="omTransmit" class="btn primary">Trasmetti</button>
+          <button id="omRestore" class="btn">Ripristina nel carrello</button>
+          <button id="omClose" class="btn">Chiudi</button>
+        </div>
+      </div>
       <div id="omBody" style="margin-top:12px"></div>
     </div>
   </div>
@@ -279,7 +302,16 @@
       const modal = document.getElementById('orderModal');
       const omBody = document.getElementById('omBody');
       const omTitle = document.getElementById('omTitle');
+      const omTransmit = document.getElementById('omTransmit');
       let currentOrder = null;
+
+      function updateTransmitButtonState(){
+        if (!omTransmit) return;
+        const status = currentOrder ? String(orderStatus(currentOrder) || '').trim().toLowerCase() : '';
+        const isTrasmesso = status === 'trasmesso';
+        omTransmit.disabled = !!isTrasmesso;
+        omTransmit.textContent = isTrasmesso ? 'Trasmesso' : 'Trasmetti';
+      }
 
       function openOrderModal(id){
         const o = (currentOrders || []).find(x=>String(x.id)===String(id));
@@ -299,13 +331,53 @@
         html += '</div>';
         omBody.innerHTML = html;
         modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false');
+        updateTransmitButtonState();
       }
 
       document.getElementById('omClose').addEventListener('click', ()=>{ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); });
+
       document.getElementById('omRestore').addEventListener('click', ()=>{
         if (!currentOrder) return;
-        try{ localStorage.setItem('pp_cart_v1', JSON.stringify({ items: currentOrder.items || [] })); alert('Ordine ripristinato nel carrello'); window.location.href='carrello.html'; }catch(e){ alert('Errore ripristino'); }
+        try{
+          localStorage.setItem('pp_cart_v1', JSON.stringify({ items: currentOrder.items || [] }));
+          alert('Ordine ripristinato nel carrello');
+          window.location.href='carrello.html';
+        }catch(e){
+          alert('Errore ripristino');
+        }
       });
+
+      if (omTransmit){
+        omTransmit.addEventListener('click', async ()=>{
+          if (!currentOrder) return;
+          if (currentOrder.id == null || currentOrder.id === '') return alert('ID ordine mancante');
+
+          omTransmit.disabled = true;
+
+          try{
+            const nowIso = new Date().toISOString();
+
+            const { error } = await sb
+              .from('orders_confirmed')
+              .update({ transmitted: true, transmitted_at: nowIso, status: 'Trasmesso' })
+              .eq('id', currentOrder.id);
+
+            if (error) throw error;
+
+            currentOrder.transmitted = true;
+            currentOrder.transmitted_at = nowIso;
+            currentOrder.status = 'Trasmesso';
+
+            render();
+            updateTransmitButtonState();
+            alert('Ordine trasmesso');
+          }catch(e){
+            console.error(e);
+            alert('Errore durante la trasmissione');
+            updateTransmitButtonState();
+          }
+        });
+      }
 
       (async ()=>{
         const ok = await guardAdmin();
