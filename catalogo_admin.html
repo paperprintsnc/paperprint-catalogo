@@ -139,7 +139,6 @@
     </div>
 
     <div class="footer-report" id="reportLine">Ultimo Aggiornamento: in attesa…</div>
-    <div class="hint" id="reportHint">(quando automatizziamo run_feed.py, qui leggeremo anche l’esito FTP)</div>
     <div class="warn" id="warnLine" style="display:none;"></div>
   </main>
 
@@ -168,6 +167,32 @@
   function formatInt(n) {
     try { return new Intl.NumberFormat('it-IT').format(Number(n) || 0); }
     catch { return String(Number(n) || 0); }
+  }
+
+  function parseGeneratedAtAsUtc(generatedAtStr) {
+    if (!generatedAtStr) return null;
+    const s = String(generatedAtStr).trim();
+
+    // "YYYY-MM-DD HH:MM:SS" -> lo interpretiamo come UTC
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) {
+      return new Date(s.replace(' ', 'T') + 'Z');
+    }
+
+    // fallback: prova parsing nativo (eventuale ISO)
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatLastUpdateRome(generatedAtStr) {
+    const d = parseGeneratedAtAsUtc(generatedAtStr);
+    if (!d) return '';
+
+    const weekday = new Intl.DateTimeFormat('it-IT', { weekday: 'long', timeZone: 'Europe/Rome' }).format(d);
+    const datePart = new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Rome' }).format(d);
+    const timePart = new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Rome' }).format(d);
+
+    const W = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+    return `Ultimo aggiornamento ${W} ${datePart} - ore: ${timePart}`;
   }
 
   function escapeHtml(s) {
@@ -426,15 +451,22 @@
       const { counts, total, source } = await loadCategoriesFromFeed();
       renderCategories(counts);
 
-      // status (se presente) + data/ora
       const status = await loadFeedStatus();
-      if (status && (status.generated_at || status.count)) {
-        const dt = status.generated_at ? String(status.generated_at).replace('T', ' ') : '';
-        const cnt = status.count != null ? formatInt(status.count) : formatInt(total);
-        setReportLine(`Ultimo aggiornamento: articoli in feed = ${cnt} (letto da JSON${dt ? ', ' + dt + ' UTC' : ''})`);
+
+      // Sottotitolo "Categorie 16 - 12.258 Articoli"
+      const subTitleEl = document.getElementById('subTitle');
+      const catCount = counts.size;
+      const itemsCount = (status && status.count != null) ? Number(status.count) : Number(total);
+      if (subTitleEl) {
+        subTitleEl.textContent = `Categorie ${formatInt(catCount)} - ${formatInt(itemsCount)} Articoli`;
+      }
+
+      // Riga in basso: formato umano + fuso Europe/Rome (niente debug)
+      if (status && status.generated_at) {
+        const pretty = formatLastUpdateRome(status.generated_at);
+        setReportLine(pretty || 'Ultimo aggiornamento: in attesa…');
       } else {
-        // fallback: solo totale
-        setReportLine(`Ultimo aggiornamento: articoli in feed = ${formatInt(total)} (letto da ${source.toUpperCase()})`);
+        setReportLine('Ultimo aggiornamento: in attesa…');
       }
     } catch (e) {
       console.error(e);
