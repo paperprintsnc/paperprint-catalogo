@@ -51,13 +51,13 @@
     .cart-confirm-box{background:#fff;border-radius:12px;padding:18px;min-width:320px;box-shadow:0 18px 60px rgba(2,6,23,.35)}
     .cart-confirm-msg{font-weight:800;color:#0f172a;margin-bottom:12px}
     .cart-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
-    .cart-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid rgba(15,23,42,.10);} 
+    .cart-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid rgba(15,23,42,.10);}
     .tot{font-size:18px;font-weight:900;color:#0f172a;}
     @media (max-width: 740px){
       .cart-row{grid-template-columns:72px 1fr auto;grid-template-areas:
         "t m r"
         "t p p"
-        "t q q";} 
+        "t q q";}
       .thumb{grid-area:t}
       .meta{grid-area:m}
       .remove{grid-area:r;justify-self:end}
@@ -175,11 +175,53 @@
   const $tot = document.getElementById("tot");
   const $count = document.getElementById("count");
 
-  // cart confirm dialog elements
+  // cart confirm dialog elements (shared)
   const $cartConfirmOverlay = document.getElementById('cartConfirmOverlay');
   const $cartConfirmMsg = document.getElementById('cartConfirmMsg');
   const $cartConfirmYes = document.getElementById('cartConfirmYes');
   const $cartConfirmNo = document.getElementById('cartConfirmNo');
+
+  // SINGLETON confirm: evita accumulo listener + doppie aperture
+  (function initConfirmSingleton(){
+    if (window.ppConfirm) return;
+
+    let busy = false;
+    let pendingPromise = null;
+
+    window.ppConfirm = function(message){
+      const msg = message || 'Confermare?';
+
+      if (!$cartConfirmOverlay || !$cartConfirmMsg || !$cartConfirmYes || !$cartConfirmNo) {
+        return Promise.resolve(window.confirm(msg));
+      }
+
+      if (busy && pendingPromise) {
+        $cartConfirmMsg.textContent = msg;
+        return pendingPromise;
+      }
+
+      busy = true;
+      pendingPromise = new Promise(resolve =>{
+        $cartConfirmMsg.textContent = msg;
+        $cartConfirmOverlay.style.display = 'flex';
+        $cartConfirmOverlay.setAttribute('aria-hidden','false');
+
+        const cleanup = ()=>{
+          $cartConfirmOverlay.style.display='none';
+          $cartConfirmOverlay.setAttribute('aria-hidden','true');
+          $cartConfirmYes.onclick = null;
+          $cartConfirmNo.onclick = null;
+          busy = false;
+          pendingPromise = null;
+        };
+
+        $cartConfirmYes.onclick = ()=>{ cleanup(); resolve(true); };
+        $cartConfirmNo.onclick  = ()=>{ cleanup(); resolve(false); };
+      });
+
+      return pendingPromise;
+    };
+  })();
 
   function eur(v){
     const n = Number(String(v ?? "").replace(",", "."));
@@ -215,17 +257,7 @@
   }
 
   function confirmDialogCart(message){
-    return new Promise(resolve =>{
-      if (!$cartConfirmOverlay) return resolve(true);
-      $cartConfirmMsg.textContent = message || 'Sei sicuro?';
-      $cartConfirmOverlay.style.display = 'flex';
-      $cartConfirmOverlay.setAttribute('aria-hidden','false');
-      const cleanup = ()=>{ $cartConfirmOverlay.style.display='none'; $cartConfirmOverlay.setAttribute('aria-hidden','true'); $cartConfirmYes.removeEventListener('click',onYes); $cartConfirmNo.removeEventListener('click',onNo); };
-      const onYes = ()=>{ cleanup(); resolve(true); };
-      const onNo = ()=>{ cleanup(); resolve(false); };
-      $cartConfirmYes.addEventListener('click', onYes);
-      $cartConfirmNo.addEventListener('click', onNo);
-    });
+    return window.ppConfirm ? window.ppConfirm(message || 'Sei sicuro?') : Promise.resolve(true);
   }
 
   async function guardAnyActiveUser(){
@@ -273,7 +305,6 @@
       $empty.style.display = "block";
       $tot.textContent = "Totale: —";
       $count.textContent = "Articoli: 0";
-      // ensure header totals and counters are cleared as well
       if ($hdrSubtotal) $hdrSubtotal.textContent = "—";
       if ($hdrIva) $hdrIva.textContent = "—";
       if ($hdrTotal) $hdrTotal.textContent = "—";
@@ -318,7 +349,10 @@
       row.querySelector(".remove").addEventListener("click", async ()=>{
         const ok = await confirmDialogCart('Rimuovere questo articolo dal carrello?');
         if (!ok) return;
-        const c = loadCart(); c.items = c.items.filter(a => String(a.code) !== String(it.code)); saveCart(c); render();
+        const c = loadCart();
+        c.items = c.items.filter(a => String(a.code) !== String(it.code));
+        saveCart(c);
+        render();
       });
 
       $list.appendChild(row);
@@ -327,11 +361,10 @@
     const t = totals(cart.items);
     $tot.textContent = "Totale: " + (t.sum ? eur(t.sum) : "—");
     $count.textContent = "Articoli: " + t.qty;
-    // move count to header and hide footer count
+
     if ($count) $count.style.display = 'none';
     if ($hdrCount) $hdrCount.textContent = String(t.qty);
 
-    // header totals (imponibile, iva, totale ordine)
     try{
       const imponibile = t.sum || 0;
       const iva = Math.round((imponibile * VAT_RATE) * 100) / 100;
@@ -339,11 +372,12 @@
       if ($hdrSubtotal) $hdrSubtotal.textContent = imponibile ? eur(imponibile) : "—";
       if ($hdrIva) $hdrIva.textContent = iva ? eur(iva) : "—";
       if ($hdrTotal) $hdrTotal.textContent = totale ? eur(totale) : "—";
-    }catch(e){ /* ignore header if missing */ }
+    }catch(e){}
   }
 
   const auth = await guardAnyActiveUser();
   if (!auth) return;
+
   if (auth.role === 'client') {
     CART_KEY = `${LEGACY_CART_KEY}_${auth.userId}`;
   } else if (auth.role === 'admin' && assistClientId) {
@@ -352,29 +386,41 @@
 
   document.getElementById("btnClear").addEventListener("click", async ()=>{
     const ok = await confirmDialogCart('Svuotare il carrello?');
-    if (!ok) return; saveCart({items:[]}); render();
+    if (!ok) return;
+    saveCart({items:[]});
+    render();
   });
 
   document.getElementById("btnCheckout").addEventListener("click", ()=>{
     alert("Checkout demo: qui agganceremo la parte reale più avanti 🙂");
   });
 
-  // header buttons (if present)
   const hbClear = document.getElementById("hdrClear");
-  if (hbClear) hbClear.addEventListener("click", async ()=>{ const ok = await confirmDialogCart('Svuotare il carrello?'); if (!ok) return; saveCart({items:[]}); render(); window.scrollTo(0,document.body.scrollTop); });
-  const hbConfirm = document.getElementById("hdrConfirm");
-  if (hbConfirm) hbConfirm.addEventListener("click", ()=>{ openOrderClientModal(); });
-  const hbContinue = document.getElementById("hdrContinue");
-  if (hbContinue) hbContinue.addEventListener("click", ()=>{ try{ localStorage.setItem('pp_cart_force_close','1'); }catch(e){}; history.back(); });
+  if (hbClear) hbClear.addEventListener("click", async ()=>{
+    const ok = await confirmDialogCart('Svuotare il carrello?');
+    if (!ok) return;
+    saveCart({items:[]});
+    render();
+    window.scrollTo(0,document.body.scrollTop);
+  });
 
-  // Esporto saveCart e render sul global per poterli richiamare dalle integrazioni esterne
+  const hbConfirm = document.getElementById("hdrConfirm");
+  if (hbConfirm) hbConfirm.addEventListener("click", ()=>{
+    if (typeof window.openOrderClientModal === 'function') window.openOrderClientModal();
+  });
+
+  const hbContinue = document.getElementById("hdrContinue");
+  if (hbContinue) hbContinue.addEventListener("click", ()=>{
+    try{ localStorage.setItem('pp_cart_force_close','1'); }catch(e){}
+    history.back();
+  });
+
   try{ window.saveCart = saveCart; window.renderCart = render; }catch(e){}
   render();
 })();
 </script>
 
 <script>
-// Order submit utilities (Supabase-based)
 (async function(){
   const CLIENTS_KEY = 'pp_clients';
   const LEGACY_CART_KEY = 'pp_cart_v1';
@@ -389,31 +435,6 @@
   const sb = (window.__pp_supabase_client)
     ? window.__pp_supabase_client
     : window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
-  // Reuse the existing confirm overlay on this page
-  const $cartConfirmOverlay = document.getElementById('cartConfirmOverlay');
-  const $cartConfirmMsg = document.getElementById('cartConfirmMsg');
-  const $cartConfirmYes = document.getElementById('cartConfirmYes');
-  const $cartConfirmNo = document.getElementById('cartConfirmNo');
-
-  function confirmDialog(message){
-    return new Promise(resolve =>{
-      if (!$cartConfirmOverlay) return resolve(window.confirm(message || 'Confermare?'));
-      $cartConfirmMsg.textContent = message || 'Confermare?';
-      $cartConfirmOverlay.style.display = 'flex';
-      $cartConfirmOverlay.setAttribute('aria-hidden','false');
-      const cleanup = ()=>{
-        $cartConfirmOverlay.style.display='none';
-        $cartConfirmOverlay.setAttribute('aria-hidden','true');
-        $cartConfirmYes.removeEventListener('click', onYes);
-        $cartConfirmNo.removeEventListener('click', onNo);
-      };
-      const onYes = ()=>{ cleanup(); resolve(true); };
-      const onNo = ()=>{ cleanup(); resolve(false); };
-      $cartConfirmYes.addEventListener('click', onYes);
-      $cartConfirmNo.addEventListener('click', onNo);
-    });
-  }
 
   function loadCart(){
     try{
@@ -444,11 +465,19 @@
     const { data: userData } = await sb.auth.getUser();
     const user = userData?.user;
     if (!user) return null;
-    const { data: me } = await sb.from('profiles').select('id, role, is_active, full_name, email').eq('id', user.id).single();
+
+    const { data: me } = await sb
+      .from('profiles')
+      .select('id, role, is_active, full_name, email')
+      .eq('id', user.id)
+      .single();
+
     if (!me || me.is_active === false) return null;
+
     const role = String(me.role || '').toLowerCase();
     if (role === 'client') CART_KEY = `${LEGACY_CART_KEY}_${me.id}`;
     else if (role === 'admin' && assistClientId) CART_KEY = `${LEGACY_CART_KEY}_${assistClientId}`;
+
     cachedMe = me;
     return me;
   }
@@ -459,59 +488,32 @@
       alert('✅ Grazie! Ordine eseguito correttamente.');
       return;
     }
-    try{
-      const msg = overlay.querySelector('.cart-confirm-msg');
-      if (msg && msg.dataset && msg.dataset.ppThankYouName){
-        msg.textContent = `✅ Grazie ${msg.dataset.ppThankYouName}! Ordine eseguito correttamente.`;
-      }
-    }catch(_){ }
     overlay.style.display = 'flex';
     overlay.setAttribute('aria-hidden','false');
-  }
-
-  function hideThankYou(){
-    const overlay = document.getElementById(THANK_OVERLAY_ID);
-    if (!overlay) return;
-    overlay.style.display = 'none';
-    overlay.setAttribute('aria-hidden','true');
   }
 
   async function submitOrderToSupabase(payload){
     let { data: sessionData, error: sessErr } = await sb.auth.getSession();
     if (sessErr) throw sessErr;
+
     let session = sessionData?.session || null;
-    // Se il token è in scadenza, prova a rinfrescarlo prima di chiamare PostgREST
+
     try{
       const expMs = session?.expires_at ? (Number(session.expires_at) * 1000) : 0;
       if (session && expMs && (Date.now() + 60_000) > expMs) {
         const { data: refreshed, error: refErr } = await sb.auth.refreshSession();
         if (!refErr && refreshed?.session) session = refreshed.session;
       }
-    }catch(_){ }
+    }catch(_){}
 
     const token = session?.access_token;
     const uid = session?.user?.id;
     if (!token || !uid) throw new Error('Sessione Supabase non valida (token/uid mancante).');
 
-    function decodeJwtClaims(jwt){
-      try{
-        const part = String(jwt||'').split('.')[1];
-        if (!part) return null;
-        const b64 = part.replace(/-/g,'+').replace(/_/g,'/');
-        const padded = b64 + '==='.slice((b64.length + 3) % 4);
-        const json = decodeURIComponent(atob(padded).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-        return JSON.parse(json);
-      }catch(_){ return null; }
-    }
-    const claims = decodeJwtClaims(token);
-
     const baseUrl = window.SUPABASE_URL;
     const anonKey = window.SUPABASE_ANON_KEY;
     if (!baseUrl || !anonKey) throw new Error('Config Supabase mancante (URL o ANON KEY).');
 
-    // IMPORTANT: i client non hanno policy SELECT su orders_confirmed (archivio admin-only).
-    // Quindi non chiediamo alcuna rappresentazione di ritorno, per evitare che PostgREST
-    // debba leggere/ritornare la riga inserita e fallisca per RLS.
     const url = `${baseUrl}/rest/v1/orders_confirmed`;
     const r = await fetch(url, {
       method: 'POST',
@@ -535,11 +537,8 @@
         if (j?.details) parts.push(`details=${j.details}`);
         if (j?.hint) parts.push(`hint=${j.hint}`);
         msg = parts.length ? parts.join(' | ') : (j?.error || text);
-      }catch(_){ }
+      }catch(_){}
 
-      if (claims && (claims.sub || claims.role)){
-        msg += `\n(jwt.sub=${claims.sub || '—'}; jwt.role=${claims.role || '—'})`;
-      }
       msg += `\n(session.uid=${uid})`;
       throw new Error(msg);
     }
@@ -547,105 +546,125 @@
     return null;
   }
 
+  // LOCK: evita doppio invio e doppia conferma
+  let __ppSubmittingOrder = false;
+
   async function submitClientOrder(){
-    const me = await getMe();
-    if (!me) {
-      alert('Sessione scaduta. Effettua di nuovo il login.');
-      window.location.href = 'client-login.html';
-      return;
-    }
-    const role = String(me.role || '').toLowerCase();
-    const isAssist = (role === 'admin' && !!assistClientId);
-    if (role !== 'client' && !isAssist) {
-      alert('Accesso non valido.');
-      return;
-    }
+    if (__ppSubmittingOrder) return;
+    __ppSubmittingOrder = true;
 
-    const cart = loadCart();
-    const items = cart.items || [];
-    if (!items.length){
-      alert('Carrello vuoto.');
-      return;
-    }
-    const ok = await confirmDialog('Confermare ordine?');
-    if (!ok) return;
+    const hdrBtn = document.getElementById('hdrConfirm');
+    const prevHdrText = hdrBtn ? hdrBtn.textContent : null;
 
-    const t = totals(items);
-    let { data: sessionData } = await sb.auth.getSession();
-    let session = sessionData?.session || null;
     try{
-      const expMs = session?.expires_at ? (Number(session.expires_at) * 1000) : 0;
-      if (session && expMs && (Date.now() + 60_000) > expMs) {
-        const { data: refreshed, error: refErr } = await sb.auth.refreshSession();
-        if (!refErr && refreshed?.session) session = refreshed.session;
+      if (hdrBtn) {
+        hdrBtn.disabled = true;
+        hdrBtn.textContent = 'Attendi...';
       }
-    }catch(_){ }
-    const uid = session?.user?.id || null;
-    if (!uid) {
-      alert('Sessione scaduta. Effettua di nuovo il login.');
-      window.location.href = 'client-login.html';
-      return;
-    }
 
-    // In assistenza: l'admin salva l'ordine a nome del cliente selezionato
-    let effectiveClientId = uid;
-    let effectiveClientName = me.full_name || null;
-    let effectiveClientEmail = me.email || null;
-    if (isAssist){
-      effectiveClientId = assistClientId;
+      const me = await getMe();
+      if (!me) {
+        alert('Sessione scaduta. Effettua di nuovo il login.');
+        window.location.href = 'client-login.html';
+        return;
+      }
+
+      const role = String(me.role || '').toLowerCase();
+      const isAssist = (role === 'admin' && !!assistClientId);
+
+      if (role !== 'client' && !isAssist) {
+        alert('Accesso non valido.');
+        return;
+      }
+
+      const cart = loadCart();
+      const items = cart.items || [];
+      if (!items.length){
+        alert('Carrello vuoto.');
+        return;
+      }
+
+      // Conferma SOLO lato CLIENTE (in assistenza admin: niente confirm)
+      if (!isAssist) {
+        const ok = window.ppConfirm
+          ? await window.ppConfirm('Confermare ordine?')
+          : window.confirm('Confermare ordine?');
+        if (!ok) return;
+      }
+
+      const t = totals(items);
+
+      let { data: sessionData } = await sb.auth.getSession();
+      let session = sessionData?.session || null;
+
       try{
-        effectiveClientName = (localStorage.getItem('pp_assist_client_name') || '').trim() || null;
-        effectiveClientEmail = (localStorage.getItem('pp_assist_client_email') || '').trim() || null;
-      }catch(_){ }
-    }
-    try{
-      await submitOrderToSupabase({
-        client_id: effectiveClientId,
-        client_name: effectiveClientName,
-        client_email: effectiveClientEmail,
-        total: t.subtotal,
-        items: items,
-        status: 'In Elaborazione'
-      });
-    }catch(e){
-      console.error('Supabase insert orders_confirmed failed', e);
-      const msg = (e && (e.message || e.error_description)) ? (e.message || e.error_description) : String(e);
-      let extra = '';
-      try{
-        if (String(msg).toLowerCase().includes('row-level security')){
-          extra = `\n(uid=${uid || 'null'}; client_id=${effectiveClientId || 'null'}; profile_id=${me?.id || 'null'})`;
+        const expMs = session?.expires_at ? (Number(session.expires_at) * 1000) : 0;
+        if (session && expMs && (Date.now() + 60_000) > expMs) {
+          const { data: refreshed, error: refErr } = await sb.auth.refreshSession();
+          if (!refErr && refreshed?.session) session = refreshed.session;
         }
-      }catch(_){ }
-      alert(`Errore invio ordine: ${msg}${extra}`);
-      return;
-    }
+      }catch(_){}
 
-    // svuota sempre la key corretta (per-utente) + rerender
-    try{ window.saveCart({items:[]}); }catch(_){ }
-    try{ localStorage.setItem(CART_KEY, JSON.stringify({items:[]})); }catch(_){ }
-    try{ if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){ }
-
-    // personalizza ringraziamento
-    try{
-      const overlay = document.getElementById(THANK_OVERLAY_ID);
-      const msgEl = overlay ? overlay.querySelector('.cart-confirm-msg') : null;
-      if (msgEl && msgEl.dataset) {
-        const thankName = (isAssist ? (effectiveClientName || effectiveClientEmail || '') : (me.full_name || me.email || ''));
-        msgEl.dataset.ppThankYouName = thankName;
+      const uid = session?.user?.id || null;
+      if (!uid) {
+        alert('Sessione scaduta. Effettua di nuovo il login.');
+        window.location.href = 'client-login.html';
+        return;
       }
-    }catch(_){ }
-    showThankYou();
+
+      let effectiveClientId = uid;
+      let effectiveClientName = me.full_name || null;
+      let effectiveClientEmail = me.email || null;
+
+      if (isAssist){
+        effectiveClientId = assistClientId;
+        try{
+          effectiveClientName = (localStorage.getItem('pp_assist_client_name') || '').trim() || null;
+          effectiveClientEmail = (localStorage.getItem('pp_assist_client_email') || '').trim() || null;
+        }catch(_){}
+      }
+
+      try{
+        await submitOrderToSupabase({
+          client_id: effectiveClientId,
+          client_name: effectiveClientName,
+          client_email: effectiveClientEmail,
+          total: t.subtotal,
+          items: items,
+          status: 'In Elaborazione'
+        });
+      }catch(e){
+        console.error('Supabase insert orders_confirmed failed', e);
+        const msg = (e && (e.message || e.error_description)) ? (e.message || e.error_description) : String(e);
+        alert(`Errore invio ordine: ${msg}`);
+        return;
+      }
+
+      try{ window.saveCart({items:[]}); }catch(_){}
+      try{ localStorage.setItem(CART_KEY, JSON.stringify({items:[]})); }catch(_){}
+      try{ if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){}
+
+      showThankYou();
+    } finally {
+      __ppSubmittingOrder = false;
+      if (hdrBtn) {
+        hdrBtn.disabled = false;
+        if (prevHdrText != null) hdrBtn.textContent = prevHdrText;
+      }
+    }
   }
 
   async function getClients(){
-    // Returns an object { clients: Array, source: 'local'|'static'|'none' }
     try{
       const raw = localStorage.getItem(CLIENTS_KEY);
       if (raw){
         try{
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length){
-            const mapped = parsed.map(c => ({ id: c.id || c.code || String(c.name||c.email||c), name: c.name || c.full_name || c.email || String(c.id||c) }));
+            const mapped = parsed.map(c => ({
+              id: c.id || c.code || String(c.name||c.email||c),
+              name: c.name || c.full_name || c.email || String(c.id||c)
+            }));
             return { clients: mapped, source: 'local' };
           }
         }catch(e){ console.warn('pp_clients parse error', e); }
@@ -657,7 +676,10 @@
       if (r.ok){
         const json = await r.json();
         if (Array.isArray(json) && json.length){
-          const mapped = json.map(c => ({ id: c.id || c.code || c.name, name: c.name || c.full_name || c.email || String(c.id) }));
+          const mapped = json.map(c => ({
+            id: c.id || c.code || c.name,
+            name: c.name || c.full_name || c.email || String(c.id)
+          }));
           return { clients: mapped, source: 'static' };
         }
       }
@@ -671,39 +693,58 @@
     const role = String(me?.role || '').toLowerCase();
     const isAssist = (role === 'admin' && !!assistClientId);
 
-    // CLIENT o ADMIN in assistenza: invio diretto ordine + popup ringraziamento
+    // CLIENT o ADMIN in assistenza: invio diretto (conferma SOLO client)
     if (me && (role === 'client' || isAssist)) {
       await submitClientOrder();
       return;
     }
 
-    // ADMIN (o altro): modal selezione cliente (come prima)
+    // ADMIN: modal selezione cliente
     const modal = document.getElementById('orderClientModal');
     const sel = document.getElementById('orderClientSelect');
     const manual = document.getElementById('orderClientManual');
     sel.innerHTML = '<option>Caricamento clienti…</option>';
-    document.getElementById('orderClientConfirm').disabled = true;
+
+    const confirmBtn = document.getElementById('orderClientConfirm');
+    confirmBtn.disabled = true;
+
     const sourceEl = document.getElementById('orderClientSource');
     const reloadBtn = document.getElementById('orderClientReload');
     const openAdminBtn = document.getElementById('orderClientOpenAdmin');
 
     async function loadAndRender(){
       sel.innerHTML = '<option>Caricamento clienti…</option>';
-      document.getElementById('orderClientConfirm').disabled = true;
+      confirmBtn.disabled = true;
+
       const res = await getClients();
       sel.innerHTML = '';
+
       const clients = (res && res.clients) ? res.clients : [];
       if (clients && clients.length){
-        clients.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+        clients.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c.id;
+          o.textContent = c.name;
+          sel.appendChild(o);
+        });
       } else {
-        const o = document.createElement('option'); o.textContent = 'Nessun cliente trovato'; o.disabled = true; sel.appendChild(o);
+        const o = document.createElement('option');
+        o.textContent = 'Nessun cliente trovato';
+        o.disabled = true;
+        sel.appendChild(o);
       }
-      sourceEl.textContent = 'Fonte: ' + (res.source === 'local' ? 'admin cache (localStorage)' : (res.source === 'static' ? 'file /output/clients.json' : 'non disponibile'));
-      document.getElementById('orderClientConfirm').disabled = false;
+
+      sourceEl.textContent =
+        'Fonte: ' +
+        (res.source === 'local' ? 'admin cache (localStorage)' :
+         (res.source === 'static' ? 'file /output/clients.json' : 'non disponibile'));
+
+      confirmBtn.disabled = false;
     }
 
-    reloadBtn.addEventListener('click', loadAndRender);
-    openAdminBtn.addEventListener('click', ()=>{ window.open('admin-login.html','_blank'); });
+    // IMPORTANT: niente addEventListener qui (evita duplicazioni)
+    reloadBtn.onclick = loadAndRender;
+    openAdminBtn.onclick = ()=>{ window.open('admin-login.html','_blank'); };
 
     manual.value = '';
     await loadAndRender();
@@ -721,8 +762,7 @@
     const cart = loadCart();
     const items = cart.items || [];
     if (!items.length){ alert('Carrello vuoto.'); return null; }
-    const ok = await confirmDialog('Confermare e archiviare ordine?');
-    if (!ok) return null;
+
     const t = totals(items);
     const payload = {
       client_id: (client && client.id && String(client.id).includes('-')) ? client.id : null,
@@ -732,17 +772,27 @@
       items: items,
       status: 'In Elaborazione'
     };
-    const res = await submitOrderToSupabase(payload);
-    try{ window.saveCart({items:[]}); if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){ }
-    return res;
+
+    // ADMIN: nessun popup conferma
+    await submitOrderToSupabase(payload);
+
+    try{
+      window.saveCart({items:[]});
+      if (typeof window.renderCart === 'function') window.renderCart();
+    }catch(_){}
+
+    return null;
   }
 
-  // bind modal buttons
-  document.getElementById('orderClientCancel').addEventListener('click', ()=>{ closeOrderClientModal(); });
+  document.getElementById('orderClientCancel').addEventListener('click', ()=>{
+    closeOrderClientModal();
+  });
+
   document.getElementById('orderClientConfirm').addEventListener('click', async ()=>{
     const sel = document.getElementById('orderClientSelect');
     const manual = document.getElementById('orderClientManual');
     let client = null;
+
     if (manual.value && String(manual.value).trim() !== ''){
       client = { id: 'manual_'+Date.now(), name: String(manual.value).trim() };
     } else if (sel.value){
@@ -751,23 +801,31 @@
       const c = (clients||[]).find(x=>String(x.id) === String(sel.value));
       client = c ? c : { id: sel.value, name: sel.value };
     }
+
     if (!client){ alert('Seleziona o inserisci un cliente.'); return; }
 
-    // submit order, clear cart, close modal, navigate to orders admin
+    const btn = document.getElementById('orderClientConfirm');
+    const prevText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Invio...';
+
     try{
       await submitAdminOrder(client);
     }catch(e){
       console.error(e);
       alert(e?.message || 'Errore invio ordine.');
+      btn.disabled = false;
+      btn.textContent = prevText;
       return;
     }
+
+    btn.disabled = false;
+    btn.textContent = prevText;
     closeOrderClientModal();
-    try{ window.location.href = 'orders_admin_confermati.html'; }catch(_){ }
+    try{ window.location.href = 'orders_admin_confermati.html'; }catch(_){}
   });
 
-  // expose for other scripts
   window.openOrderClientModal = openOrderClientModal;
-
 })();
 </script>
 
@@ -789,7 +847,7 @@
     okBtn.addEventListener('click', ()=>{
       overlay.style.display = 'none';
       overlay.setAttribute('aria-hidden','true');
-      try{ window.location.href = 'client.html'; }catch(_){ }
+      try{ window.location.href = 'client.html'; }catch(_){}
     });
   })();
 </script>
