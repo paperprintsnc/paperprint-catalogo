@@ -82,6 +82,13 @@
       opacity:.6;
       cursor:not-allowed;
     }
+
+    /* NUOVO: bottone Elimina rosso */
+    #page-orders-admin .btn.danger{
+      background:#ef4444 !important;
+      color:#fff !important;
+      border-color:#ef4444 !important;
+    }
   </style>
 </head>
 <body id="page-orders-admin">
@@ -225,14 +232,26 @@
         return Array.isArray(data) ? data : [];
       }
 
+      function formatOrderNo(o){
+        return (o.order_no != null && o.order_no !== '')
+          ? String(o.order_no).padStart(6,'0')
+          : String(o.number || o.id || '');
+      }
+
+      function formatClientName(o){
+        return String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
+      }
+
       function render(){
         const orders = currentOrders;
-        const tbody = document.querySelector('#ordersTable tbody'); tbody.innerHTML='';
+        const tbody = document.querySelector('#ordersTable tbody');
+        tbody.innerHTML='';
+
         for(const o of orders){
           const tr = document.createElement('tr');
           const dt = new Date(o.created_at || o.date || '');
-          const clientName = String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
-          const orderNo = (o.order_no != null && o.order_no !== '') ? String(o.order_no).padStart(6,'0') : String(o.number || o.id || '');
+          const clientName = formatClientName(o);
+          const orderNo = formatOrderNo(o);
           const totalText = (o.total != null && o.total !== '') ? eur(o.total) : '—';
           const dateText = dt && !isNaN(dt.getTime()) ? dt.toLocaleString() : '';
           const statusText = orderStatus(o);
@@ -243,7 +262,10 @@
             <td>${esc(dateText)}</td>
             <td>${esc(totalText)}</td>
             <td title="${esc(statusText)}">${esc(statusText)}</td>
-            <td><button class="btn" data-id="${esc(o.id)}" data-action="view">Consulta</button></td>
+            <td>
+              <button class="btn" data-id="${esc(o.id)}" data-action="view">Consulta</button>
+              <button class="btn danger" data-id="${esc(o.id)}" data-action="delete" style="margin-left:6px">Elimina</button>
+            </td>
           `;
           tbody.appendChild(tr);
         }
@@ -292,9 +314,10 @@
         const btn = ev.target.closest('button[data-action]');
         if (!btn) return;
         const id = btn.getAttribute('data-id');
-        if (btn.getAttribute('data-action') === 'view'){
-          openOrderModal(id);
-        }
+        const action = btn.getAttribute('data-action');
+
+        if (action === 'view') openOrderModal(id);
+        if (action === 'delete') deleteOrder(id);
       });
 
       const modal = document.getElementById('orderModal');
@@ -314,9 +337,10 @@
       function openOrderModal(id){
         const o = (currentOrders || []).find(x=>String(x.id)===String(id));
         if (!o) return alert('Ordine non trovato');
+
         currentOrder = o;
-        const orderNo = (o.order_no != null && o.order_no !== '') ? String(o.order_no).padStart(6,'0') : String(o.number || o.id || '');
-        const clientName = String(o.client_name || (o.client && o.client.name) || o.client_email || '').trim();
+        const orderNo = formatOrderNo(o);
+        const clientName = formatClientName(o);
         const created = o.created_at || o.date;
 
         omTitle.textContent = `Ordine ${orderNo}${clientName ? ' — ' + clientName : ''}`;
@@ -334,6 +358,40 @@
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden','false');
         updateTransmitButtonState();
+      }
+
+      async function deleteOrder(id){
+        const o = (currentOrders || []).find(x=>String(x.id)===String(id));
+        if (!o) return alert('Ordine non trovato');
+
+        const orderNo = formatOrderNo(o);
+        const clientName = formatClientName(o);
+
+        const ok = confirm(`Eliminare definitivamente l'ordine ${orderNo}${clientName ? ' — ' + clientName : ''}?\n\nQuesta azione non può essere annullata.`);
+        if (!ok) return;
+
+        try{
+          const { error } = await sb
+            .from('orders_confirmed')
+            .delete()
+            .eq('id', id);
+
+          if (error) throw error;
+
+          currentOrders = currentOrders.filter(x => String(x.id) !== String(id));
+
+          if (currentOrder && String(currentOrder.id) === String(id)) {
+            currentOrder = null;
+            modal.style.display='none';
+            modal.setAttribute('aria-hidden','true');
+          }
+
+          render();
+          alert('Ordine eliminato.');
+        }catch(e){
+          console.error(e);
+          alert('Errore eliminazione ordine (verifica permessi/RLS su Supabase).');
+        }
       }
 
       document.getElementById('omClose').addEventListener('click', ()=>{
