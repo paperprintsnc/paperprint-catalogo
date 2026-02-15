@@ -113,7 +113,7 @@
     <div id="empty" class="cart-empty" style="display:none;">Carrello vuoto.</div>
     <div id="list" class="cart-list"></div>
 
-    <!-- confirm dialog (cart) -->
+    <!-- confirm dialog (cart) - USATO SIA PER CONFERME CHE PER WARNING (no accumulo listener) -->
     <div id="cartConfirmOverlay" class="cart-confirm-overlay" role="dialog" aria-hidden="true">
       <div class="cart-confirm-box">
         <div class="cart-confirm-msg" id="cartConfirmMsg">Confermare?</div>
@@ -133,8 +133,9 @@
   <!-- Order client selection modal -->
   <div id="orderClientModal" class="cart-confirm-overlay" role="dialog" aria-hidden="true" style="display:none;">
     <div class="cart-confirm-box">
-      <h3 style="margin:0 0 10px 0;font-weight:900">Conferma Ordine: Seleziona Cliente</h3>
-      <div style="display:flex;flex-direction:column;gap:8px;">
+      <h3 id="orderClientTitle" style="margin:0 0 10px 0;font-weight:900">Conferma Ordine: Seleziona Cliente</h3>
+
+      <div id="orderClientForm" style="display:flex;flex-direction:column;gap:8px;">
         <select id="orderClientSelect" style="padding:8px;border-radius:8px;border:1px solid rgba(15,23,42,.10)"></select>
         <input id="orderClientManual" placeholder="Oppure inserisci nuovo cliente (nome)" style="padding:8px;border-radius:8px;border:1px solid rgba(15,23,42,.10)">
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
@@ -143,15 +144,26 @@
           <button id="orderClientOpenAdmin" class="btn" type="button" style="padding:6px 8px;font-size:12px">Apri Admin</button>
         </div>
       </div>
+
+      <div id="orderClientSuccess" style="display:none;font-weight:900;color:#16a34a;margin-top:10px">
+        ✅ Ordine archiviato correttamente.
+      </div>
+
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
         <button class="btn" id="orderClientCancel">Annulla</button>
         <button class="btn primary" id="orderClientConfirm">Conferma e Archivia</button>
+
+        <!-- QUESTO È IL "DUPLICATO" DEL BOTTONE OK (stesso uso del popup grazie) -->
+        <button class="btn primary" id="orderClientOk" type="button" style="display:none">OK</button>
       </div>
     </div>
   </div>
 
 <script>
 (async function(){
+  if (window.__ppCartUiInit) return;
+  window.__ppCartUiInit = true;
+
   const LEGACY_CART_KEY = "pp_cart_v1";
   let CART_KEY = LEGACY_CART_KEY;
   const VAT_RATE = 0.22;
@@ -175,33 +187,32 @@
   const $tot = document.getElementById("tot");
   const $count = document.getElementById("count");
 
-  // cart confirm dialog elements (shared)
+  // shared confirm overlay elements
   const $cartConfirmOverlay = document.getElementById('cartConfirmOverlay');
   const $cartConfirmMsg = document.getElementById('cartConfirmMsg');
   const $cartConfirmYes = document.getElementById('cartConfirmYes');
   const $cartConfirmNo = document.getElementById('cartConfirmNo');
 
-  // SINGLETON confirm: evita accumulo listener + doppie aperture
+  // confirm singleton: NIENTE accumulo listener
   (function initConfirmSingleton(){
     if (window.ppConfirm) return;
 
     let busy = false;
-    let pendingPromise = null;
+    let pending = null;
 
     window.ppConfirm = function(message){
       const msg = message || 'Confermare?';
-
       if (!$cartConfirmOverlay || !$cartConfirmMsg || !$cartConfirmYes || !$cartConfirmNo) {
         return Promise.resolve(window.confirm(msg));
       }
 
-      if (busy && pendingPromise) {
+      if (busy && pending) {
         $cartConfirmMsg.textContent = msg;
-        return pendingPromise;
+        return pending;
       }
 
       busy = true;
-      pendingPromise = new Promise(resolve =>{
+      pending = new Promise(resolve =>{
         $cartConfirmMsg.textContent = msg;
         $cartConfirmOverlay.style.display = 'flex';
         $cartConfirmOverlay.setAttribute('aria-hidden','false');
@@ -212,14 +223,14 @@
           $cartConfirmYes.onclick = null;
           $cartConfirmNo.onclick = null;
           busy = false;
-          pendingPromise = null;
+          pending = null;
         };
 
         $cartConfirmYes.onclick = ()=>{ cleanup(); resolve(true); };
         $cartConfirmNo.onclick  = ()=>{ cleanup(); resolve(false); };
       });
 
-      return pendingPromise;
+      return pending;
     };
   })();
 
@@ -250,7 +261,7 @@
     for (const it of items){
       const q = Math.max(1, Number(it.qty||1));
       qty += q;
-      const p = Number(String(it.price ?? "").replace(",","."));
+      const p = Number(String(it.price ?? "").replace(",",".")); 
       if (isFinite(p)) sum += p*q;
     }
     return {qty, sum};
@@ -384,36 +395,38 @@
     CART_KEY = `${LEGACY_CART_KEY}_${assistClientId}`;
   }
 
-  document.getElementById("btnClear").addEventListener("click", async ()=>{
+  const btnClear = document.getElementById("btnClear");
+  if (btnClear) btnClear.onclick = async ()=>{
     const ok = await confirmDialogCart('Svuotare il carrello?');
     if (!ok) return;
     saveCart({items:[]});
     render();
-  });
+  };
 
-  document.getElementById("btnCheckout").addEventListener("click", ()=>{
+  const btnCheckout = document.getElementById("btnCheckout");
+  if (btnCheckout) btnCheckout.onclick = ()=>{
     alert("Checkout demo: qui agganceremo la parte reale più avanti 🙂");
-  });
+  };
 
   const hbClear = document.getElementById("hdrClear");
-  if (hbClear) hbClear.addEventListener("click", async ()=>{
+  if (hbClear) hbClear.onclick = async ()=>{
     const ok = await confirmDialogCart('Svuotare il carrello?');
     if (!ok) return;
     saveCart({items:[]});
     render();
     window.scrollTo(0,document.body.scrollTop);
-  });
+  };
 
   const hbConfirm = document.getElementById("hdrConfirm");
-  if (hbConfirm) hbConfirm.addEventListener("click", ()=>{
+  if (hbConfirm) hbConfirm.onclick = ()=>{
     if (typeof window.openOrderClientModal === 'function') window.openOrderClientModal();
-  });
+  };
 
   const hbContinue = document.getElementById("hdrContinue");
-  if (hbContinue) hbContinue.addEventListener("click", ()=>{
+  if (hbContinue) hbContinue.onclick = ()=>{
     try{ localStorage.setItem('pp_cart_force_close','1'); }catch(e){}
     history.back();
-  });
+  };
 
   try{ window.saveCart = saveCart; window.renderCart = render; }catch(e){}
   render();
@@ -422,6 +435,9 @@
 
 <script>
 (async function(){
+  if (window.__ppCartOrderInit) return;
+  window.__ppCartOrderInit = true;
+
   const CLIENTS_KEY = 'pp_clients';
   const LEGACY_CART_KEY = 'pp_cart_v1';
   let CART_KEY = LEGACY_CART_KEY;
@@ -429,8 +445,6 @@
 
   const urlParams = new URLSearchParams(location.search);
   const assistClientId = (urlParams.get('as_client') || '').trim();
-
-  const THANK_OVERLAY_ID = 'ppThankYouOverlay';
 
   const sb = (window.__pp_supabase_client)
     ? window.__pp_supabase_client
@@ -480,16 +494,6 @@
 
     cachedMe = me;
     return me;
-  }
-
-  function showThankYou(){
-    const overlay = document.getElementById(THANK_OVERLAY_ID);
-    if (!overlay) {
-      alert('✅ Grazie! Ordine eseguito correttamente.');
-      return;
-    }
-    overlay.style.display = 'flex';
-    overlay.setAttribute('aria-hidden','false');
   }
 
   async function submitOrderToSupabase(payload){
@@ -546,7 +550,7 @@
     return null;
   }
 
-  // LOCK: evita doppio invio e doppia conferma
+  // LOCK: evita doppio invio + doppia conferma
   let __ppSubmittingOrder = false;
 
   async function submitClientOrder(){
@@ -584,7 +588,7 @@
         return;
       }
 
-      // Conferma SOLO lato CLIENTE (in assistenza admin: niente confirm)
+      // CONFERMA SOLO LATO CLIENTE (admin assistito: NO)
       if (!isAssist) {
         const ok = window.ppConfirm
           ? await window.ppConfirm('Confermare ordine?')
@@ -624,27 +628,30 @@
         }catch(_){}
       }
 
-      try{
-        await submitOrderToSupabase({
-          client_id: effectiveClientId,
-          client_name: effectiveClientName,
-          client_email: effectiveClientEmail,
-          total: t.subtotal,
-          items: items,
-          status: 'In Elaborazione'
-        });
-      }catch(e){
-        console.error('Supabase insert orders_confirmed failed', e);
-        const msg = (e && (e.message || e.error_description)) ? (e.message || e.error_description) : String(e);
-        alert(`Errore invio ordine: ${msg}`);
-        return;
-      }
+      await submitOrderToSupabase({
+        client_id: effectiveClientId,
+        client_name: effectiveClientName,
+        client_email: effectiveClientEmail,
+        total: t.subtotal,
+        items: items,
+        status: 'In Elaborazione'
+      });
 
       try{ window.saveCart({items:[]}); }catch(_){}
       try{ localStorage.setItem(CART_KEY, JSON.stringify({items:[]})); }catch(_){}
       try{ if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){}
 
-      showThankYou();
+      // dopo invio: per client torna a client.html, per assistenza torna in admin
+      const afterUrl = isAssist ? 'orders_admin_confermati.html' : 'client.html';
+      if (window.ppConfirm) {
+        await window.ppConfirm('✅ Grazie! Ordine eseguito correttamente.\n\nPremi CONFERMA per continuare.');
+      } else {
+        alert('✅ Grazie! Ordine eseguito correttamente.');
+      }
+      window.location.href = afterUrl;
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || 'Errore invio ordine.');
     } finally {
       __ppSubmittingOrder = false;
       if (hdrBtn) {
@@ -688,6 +695,28 @@
     return { clients: [], source: 'none' };
   }
 
+  function resetOrderClientModalUi(){
+    const title = document.getElementById('orderClientTitle');
+    const form = document.getElementById('orderClientForm');
+    const success = document.getElementById('orderClientSuccess');
+    const cancelBtn = document.getElementById('orderClientCancel');
+    const confirmBtn = document.getElementById('orderClientConfirm');
+    const okBtn = document.getElementById('orderClientOk');
+
+    if (title) title.textContent = 'Conferma Ordine: Seleziona Cliente';
+    if (form) form.style.display = 'flex';
+    if (success) success.style.display = 'none';
+
+    if (cancelBtn) cancelBtn.style.display = '';
+    if (confirmBtn) confirmBtn.style.display = '';
+    if (okBtn) okBtn.style.display = 'none';
+
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Conferma e Archivia';
+    }
+  }
+
   async function openOrderClientModal(){
     const me = await getMe();
     const role = String(me?.role || '').toLowerCase();
@@ -700,6 +729,8 @@
     }
 
     // ADMIN: modal selezione cliente
+    resetOrderClientModalUi();
+
     const modal = document.getElementById('orderClientModal');
     const sel = document.getElementById('orderClientSelect');
     const manual = document.getElementById('orderClientManual');
@@ -742,12 +773,13 @@
       confirmBtn.disabled = false;
     }
 
-    // IMPORTANT: niente addEventListener qui (evita duplicazioni)
+    // NIENTE addEventListener qui (evita duplicazioni quando riapri il modal)
     reloadBtn.onclick = loadAndRender;
     openAdminBtn.onclick = ()=>{ window.open('admin-login.html','_blank'); };
 
     manual.value = '';
     await loadAndRender();
+
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden','false');
   }
@@ -784,11 +816,17 @@
     return null;
   }
 
-  document.getElementById('orderClientCancel').addEventListener('click', ()=>{
-    closeOrderClientModal();
-  });
+  const cancelBtn = document.getElementById('orderClientCancel');
+  if (cancelBtn) cancelBtn.onclick = ()=>{ closeOrderClientModal(); };
 
-  document.getElementById('orderClientConfirm').addEventListener('click', async ()=>{
+  const okBtn = document.getElementById('orderClientOk');
+  if (okBtn) okBtn.onclick = ()=>{
+    closeOrderClientModal();
+    window.location.href = 'orders_admin_confermati.html';
+  };
+
+  const confirmBtn = document.getElementById('orderClientConfirm');
+  if (confirmBtn) confirmBtn.onclick = async ()=>{
     const sel = document.getElementById('orderClientSelect');
     const manual = document.getElementById('orderClientManual');
     let client = null;
@@ -804,52 +842,38 @@
 
     if (!client){ alert('Seleziona o inserisci un cliente.'); return; }
 
-    const btn = document.getElementById('orderClientConfirm');
-    const prevText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Invio...';
+    const prevText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Invio...';
 
     try{
       await submitAdminOrder(client);
     }catch(e){
       console.error(e);
       alert(e?.message || 'Errore invio ordine.');
-      btn.disabled = false;
-      btn.textContent = prevText;
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = prevText;
       return;
     }
 
-    btn.disabled = false;
-    btn.textContent = prevText;
-    closeOrderClientModal();
-    try{ window.location.href = 'orders_admin_confermati.html'; }catch(_){}
-  });
+    // SUCCESS: mostra "OK" dentro il popup scelta clienti (come hai chiesto)
+    const title = document.getElementById('orderClientTitle');
+    const form = document.getElementById('orderClientForm');
+    const success = document.getElementById('orderClientSuccess');
+    const cancelBtn = document.getElementById('orderClientCancel');
+    const okBtn = document.getElementById('orderClientOk');
+
+    if (title) title.textContent = '✅ Ordine Archiviato';
+    if (form) form.style.display = 'none';
+    if (success) success.style.display = 'block';
+
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    confirmBtn.style.display = 'none';
+    if (okBtn) okBtn.style.display = '';
+  };
 
   window.openOrderClientModal = openOrderClientModal;
 })();
-</script>
-
-<!-- Thank you popup (client) -->
-<div id="ppThankYouOverlay" class="cart-confirm-overlay" role="dialog" aria-hidden="true" style="display:none;">
-  <div class="cart-confirm-box">
-    <div class="cart-confirm-msg" style="font-size:18px">✅ Grazie! Ordine eseguito correttamente.</div>
-    <div class="cart-confirm-actions">
-      <button class="btn primary" id="ppThankYouOk" type="button">OK</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  (function(){
-    const okBtn = document.getElementById('ppThankYouOk');
-    const overlay = document.getElementById('ppThankYouOverlay');
-    if (!okBtn || !overlay) return;
-    okBtn.addEventListener('click', ()=>{
-      overlay.style.display = 'none';
-      overlay.setAttribute('aria-hidden','true');
-      try{ window.location.href = 'client.html'; }catch(_){}
-    });
-  })();
 </script>
 </body>
 </html>
