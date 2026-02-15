@@ -64,6 +64,11 @@
       .price{grid-area:p}
       .qty{grid-area:q}
     }
+
+    /* FIX: evita blocco “modal sopra modal” */
+    #orderClientModal{ z-index: 12000; }
+    #cartConfirmOverlay{ z-index: 13000; }
+    #ppThankYouOverlay{ z-index: 13000; }
   </style>
 </head>
 <body>
@@ -208,7 +213,7 @@
     for (const it of items){
       const q = Math.max(1, Number(it.qty||1));
       qty += q;
-      const p = Number(String(it.price ?? "").replace(",","."));
+      const p = Number(String(it.price ?? "").replace(",",".")); 
       if (isFinite(p)) sum += p*q;
     }
     return {qty, sum};
@@ -721,8 +726,28 @@
     const cart = loadCart();
     const items = cart.items || [];
     if (!items.length){ alert('Carrello vuoto.'); return null; }
+
+    // FIX: evita “modal sopra modal” (nasconde il modal clienti prima della conferma)
+    const modal = document.getElementById('orderClientModal');
+    const modalWasOpen = !!(modal && modal.style.display !== 'none');
+
+    if (modalWasOpen){
+      try{ document.activeElement?.blur?.(); }catch(_){}
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden','true');
+    }
+
     const ok = await confirmDialog('Confermare e archiviare ordine?');
-    if (!ok) return null;
+
+    // Se annulli: riapri modal clienti
+    if (!ok){
+      if (modalWasOpen){
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden','false');
+      }
+      return null;
+    }
+
     const t = totals(items);
     const payload = {
       client_id: (client && client.id && String(client.id).includes('-')) ? client.id : null,
@@ -732,9 +757,20 @@
       items: items,
       status: 'In Elaborazione'
     };
-    const res = await submitOrderToSupabase(payload);
+
+    try{
+      await submitOrderToSupabase(payload);
+    }catch(e){
+      // Se errore invio: riapri modal clienti per riprovare
+      if (modalWasOpen){
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden','false');
+      }
+      throw e;
+    }
+
     try{ window.saveCart({items:[]}); if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){ }
-    return res;
+    return null;
   }
 
   // bind modal buttons
