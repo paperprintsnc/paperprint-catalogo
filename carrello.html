@@ -9,7 +9,6 @@
   <script src="assets/supabase-config.js"></script>
   <style>
     .wrap{max-width:1100px;margin:0 auto;padding:28px 16px;}
-    /* fixed header for totals and actions */
     .topbar{position:fixed;top:0;left:0;right:0;height:96px;background:linear-gradient(180deg,#dbe6ef,rgba(248,250,252,0.6));box-shadow: -10px -12px 20px 0px #011016;}
     .topbar-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:100%;padding:12px 20px;gap:12px}
     .brand{display:flex;align-items:center;gap:12px}
@@ -19,7 +18,6 @@
     .hdr-box{background:#fff;border-radius:12px;padding:8px 14px;text-align:center;min-width:96px;border:1px solid rgba(15,23,42,.06);box-shadow: inset 1px 1px 0px 1px var(--muted)}
     .hdr-amt{font-weight:900;color:#0f172a}
     .hdr-label{font-size:12px;color:#64748b}
-    .hdr-count{font-weight:900;color:#0f172a;margin-left:14px}
     .hdr-count-badge{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:92px}
     .hdr-count-badge .hdr-count-label{font-size:12px;color:#64748b;font-weight:900}
     .hdr-count-badge .hdr-count-num{font-weight:900;color:#16a34a;background:#fff;padding:6px 12px;border-radius:12px;border:2px solid rgba(22,163,74,0.14);box-shadow: inset 1px 1px 0px 1px var(--muted)}
@@ -27,7 +25,6 @@
     .header-actions .btn{border-radius:14px;padding:8px 12px}
     .wrap{padding-top:110px}
     .cart-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
-    .cart-head h1{margin:0;font-size:32px;}
     .cart-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
     .btn{border:1px solid rgba(15,23,42,.12);background:#fff;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer;text-decoration:none;color:#0f172a;}
     .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb;}
@@ -46,10 +43,9 @@
     .qty button{width:36px;height:36px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#2563eb47;cursor:pointer;font-weight:1000;}
     .qty span{min-width:22px;text-align:center;font-weight:900;}
     .remove{width:36px;height:36px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#dd4545a6;cursor:pointer;font-weight:900;}
-    /* confirm dialog for cart page */
     .cart-confirm-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:12000}
     .cart-confirm-box{background:#fff;border-radius:12px;padding:18px;min-width:320px;box-shadow:0 18px 60px rgba(2,6,23,.35)}
-    .cart-confirm-msg{font-weight:800;color:#0f172a;margin-bottom:12px}
+    .cart-confirm-msg{font-weight:800;color:#0f172a;margin-bottom:12px;white-space:pre-line}
     .cart-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
     .cart-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid rgba(15,23,42,.10);}
     .tot{font-size:18px;font-weight:900;color:#0f172a;}
@@ -113,7 +109,6 @@
     <div id="empty" class="cart-empty" style="display:none;">Carrello vuoto.</div>
     <div id="list" class="cart-list"></div>
 
-    <!-- confirm dialog (cart) - USATO SIA PER CONFERME CHE PER WARNING (no accumulo listener) -->
     <div id="cartConfirmOverlay" class="cart-confirm-overlay" role="dialog" aria-hidden="true">
       <div class="cart-confirm-box">
         <div class="cart-confirm-msg" id="cartConfirmMsg">Confermare?</div>
@@ -152,8 +147,6 @@
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
         <button class="btn" id="orderClientCancel">Annulla</button>
         <button class="btn primary" id="orderClientConfirm">Conferma e Archivia</button>
-
-        <!-- QUESTO È IL "DUPLICATO" DEL BOTTONE OK (stesso uso del popup grazie) -->
         <button class="btn primary" id="orderClientOk" type="button" style="display:none">OK</button>
       </div>
     </div>
@@ -187,13 +180,11 @@
   const $tot = document.getElementById("tot");
   const $count = document.getElementById("count");
 
-  // shared confirm overlay elements
   const $cartConfirmOverlay = document.getElementById('cartConfirmOverlay');
   const $cartConfirmMsg = document.getElementById('cartConfirmMsg');
   const $cartConfirmYes = document.getElementById('cartConfirmYes');
   const $cartConfirmNo = document.getElementById('cartConfirmNo');
 
-  // confirm singleton: NIENTE accumulo listener
   (function initConfirmSingleton(){
     if (window.ppConfirm) return;
 
@@ -450,6 +441,11 @@
     ? window.__pp_supabase_client
     : window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
+  const isUuidLike = (s) => {
+    const x = String(s || '').trim();
+    return x.length >= 30 && x.includes('-');
+  };
+
   function loadCart(){
     try{
       const raw = localStorage.getItem(CART_KEY);
@@ -482,7 +478,7 @@
 
     const { data: me } = await sb
       .from('profiles')
-      .select('id, role, is_active, full_name, email')
+      .select('id, role, is_active, full_name, email, vat_number, fiscal_code')
       .eq('id', user.id)
       .single();
 
@@ -494,6 +490,22 @@
 
     cachedMe = me;
     return me;
+  }
+
+  async function getProfileVatCf(userId){
+    if (!userId || !isUuidLike(userId)) return { vat_number: null, fiscal_code: null, full_name: null, email: null };
+    const { data, error } = await sb
+      .from('profiles')
+      .select('vat_number,fiscal_code,full_name,email')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return {
+      vat_number: data?.vat_number || null,
+      fiscal_code: data?.fiscal_code || null,
+      full_name: data?.full_name || null,
+      email: data?.email || null
+    };
   }
 
   async function submitOrderToSupabase(payload){
@@ -542,7 +554,6 @@
         if (j?.hint) parts.push(`hint=${j.hint}`);
         msg = parts.length ? parts.join(' | ') : (j?.error || text);
       }catch(_){}
-
       msg += `\n(session.uid=${uid})`;
       throw new Error(msg);
     }
@@ -550,7 +561,6 @@
     return null;
   }
 
-  // LOCK: evita doppio invio + doppia conferma
   let __ppSubmittingOrder = false;
 
   async function submitClientOrder(){
@@ -588,7 +598,6 @@
         return;
       }
 
-      // CONFERMA SOLO LATO CLIENTE (admin assistito: NO)
       if (!isAssist) {
         const ok = window.ppConfirm
           ? await window.ppConfirm('Confermare ordine?')
@@ -619,12 +628,23 @@
       let effectiveClientId = uid;
       let effectiveClientName = me.full_name || null;
       let effectiveClientEmail = me.email || null;
+      let effectiveVat = me.vat_number || null;
+      let effectiveFiscal = me.fiscal_code || null;
 
       if (isAssist){
         effectiveClientId = assistClientId;
+
         try{
           effectiveClientName = (localStorage.getItem('pp_assist_client_name') || '').trim() || null;
           effectiveClientEmail = (localStorage.getItem('pp_assist_client_email') || '').trim() || null;
+        }catch(_){}
+
+        try{
+          const p = await getProfileVatCf(assistClientId);
+          effectiveVat = p.vat_number || null;
+          effectiveFiscal = p.fiscal_code || null;
+          if (!effectiveClientName) effectiveClientName = p.full_name || effectiveClientName;
+          if (!effectiveClientEmail) effectiveClientEmail = p.email || effectiveClientEmail;
         }catch(_){}
       }
 
@@ -632,6 +652,8 @@
         client_id: effectiveClientId,
         client_name: effectiveClientName,
         client_email: effectiveClientEmail,
+        client_vat_number: effectiveVat,
+        client_fiscal_code: effectiveFiscal,
         total: t.subtotal,
         items: items,
         status: 'In Elaborazione'
@@ -641,7 +663,6 @@
       try{ localStorage.setItem(CART_KEY, JSON.stringify({items:[]})); }catch(_){}
       try{ if (typeof window.renderCart === 'function') window.renderCart(); }catch(_){}
 
-      // dopo invio: per client torna a client.html, per assistenza torna in admin
       const afterUrl = isAssist ? 'orders_admin_confermati.html' : 'client.html';
       if (window.ppConfirm) {
         await window.ppConfirm('✅ Grazie! Ordine eseguito correttamente.\n\nPremi CONFERMA per continuare.');
@@ -722,13 +743,11 @@
     const role = String(me?.role || '').toLowerCase();
     const isAssist = (role === 'admin' && !!assistClientId);
 
-    // CLIENT o ADMIN in assistenza: invio diretto (conferma SOLO client)
     if (me && (role === 'client' || isAssist)) {
       await submitClientOrder();
       return;
     }
 
-    // ADMIN: modal selezione cliente
     resetOrderClientModalUi();
 
     const modal = document.getElementById('orderClientModal');
@@ -773,7 +792,6 @@
       confirmBtn.disabled = false;
     }
 
-    // NIENTE addEventListener qui (evita duplicazioni quando riapri il modal)
     reloadBtn.onclick = loadAndRender;
     openAdminBtn.onclick = ()=>{ window.open('admin-login.html','_blank'); };
 
@@ -796,16 +814,33 @@
     if (!items.length){ alert('Carrello vuoto.'); return null; }
 
     const t = totals(items);
+
+    let clientId = null;
+    let clientName = client?.name || null;
+    let clientEmail = client?.email || null;
+    let clientVat = null;
+    let clientFiscal = null;
+
+    if (client?.id && isUuidLike(client.id)) {
+      clientId = client.id;
+      const p = await getProfileVatCf(client.id);
+      clientVat = p.vat_number || null;
+      clientFiscal = p.fiscal_code || null;
+      if (!clientName) clientName = p.full_name || null;
+      if (!clientEmail) clientEmail = p.email || null;
+    }
+
     const payload = {
-      client_id: (client && client.id && String(client.id).includes('-')) ? client.id : null,
-      client_name: client?.name || null,
-      client_email: client?.email || null,
+      client_id: clientId,
+      client_name: clientName,
+      client_email: clientEmail,
+      client_vat_number: clientVat,
+      client_fiscal_code: clientFiscal,
       total: t.subtotal,
       items: items,
       status: 'In Elaborazione'
     };
 
-    // ADMIN: nessun popup conferma
     await submitOrderToSupabase(payload);
 
     try{
@@ -856,7 +891,6 @@
       return;
     }
 
-    // SUCCESS: mostra "OK" dentro il popup scelta clienti (come hai chiesto)
     const title = document.getElementById('orderClientTitle');
     const form = document.getElementById('orderClientForm');
     const success = document.getElementById('orderClientSuccess');
