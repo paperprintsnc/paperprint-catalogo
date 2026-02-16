@@ -152,10 +152,11 @@
 
   <div id="orderModal" class="modal-overlay" role="dialog" aria-hidden="true">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h3 id="omTitle">Ordine</h3>
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h3 id="omTitle" style="margin:0">Ordine</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           <button id="omTransmit" class="btn primary">Trasmetti</button>
+          <button id="omArchive" class="btn">Archivia</button>
           <button id="omRestore" class="btn">Ripristina nel carrello</button>
           <button id="omClose" class="btn">Chiudi</button>
         </div>
@@ -207,11 +208,16 @@
       }
 
       function orderStatus(o){
+        const archivedAt = o && (o.archived_at || o.archiviato_at);
+        if (archivedAt) return 'Archiviato';
+
         const raw = (o && (o.status ?? o.stato)) ? String(o.status ?? o.stato).trim() : '';
         if (raw) return raw;
+
         const transmitted = (o && (o.transmitted === true || o.trasmesso === true || o.sent === true));
         const transmittedAt = (o && (o.transmitted_at || o.trasmesso_at || o.sent_at));
         if (transmitted || transmittedAt) return 'Trasmesso';
+
         return 'In Elaborazione';
       }
 
@@ -222,7 +228,7 @@
       async function loadOrdersFromSupabase(){
         let q = sb
           .from('orders_confirmed')
-          .select('id, order_no, created_at, client_id, client_name, client_email, total, items, status, transmitted, transmitted_at')
+          .select('id, order_no, created_at, client_id, client_name, client_email, total, items, status, transmitted, transmitted_at, archived_at')
           .order('created_at', { ascending: false })
           .limit(500);
         if (filterClientId) q = q.eq('client_id', filterClientId);
@@ -324,14 +330,27 @@
       const omBody = document.getElementById('omBody');
       const omTitle = document.getElementById('omTitle');
       const omTransmit = document.getElementById('omTransmit');
+      const omArchive = document.getElementById('omArchive');
       let currentOrder = null;
+
+      function isArchived(o){
+        return !!(o && (o.archived_at || o.archiviato_at)) || String(orderStatus(o)).toLowerCase() === 'archiviato';
+      }
 
       function updateTransmitButtonState(){
         if (!omTransmit) return;
+
         const status = currentOrder ? String(orderStatus(currentOrder) || '').trim().toLowerCase() : '';
         const isTrasmesso = status === 'trasmesso';
-        omTransmit.disabled = !!isTrasmesso;
-        omTransmit.textContent = isTrasmesso ? 'Trasmesso' : 'Trasmetti';
+        const archived = status === 'archiviato';
+
+        omTransmit.disabled = archived || isTrasmesso;
+        omTransmit.textContent = archived ? 'Archiviato' : (isTrasmesso ? 'Trasmesso' : 'Trasmetti');
+
+        if (omArchive){
+          omArchive.disabled = archived;
+          omArchive.textContent = archived ? 'Archiviato' : 'Archivia';
+        }
       }
 
       function openOrderModal(id){
@@ -342,11 +361,14 @@
         const orderNo = formatOrderNo(o);
         const clientName = formatClientName(o);
         const created = o.created_at || o.date;
+        const statusText = orderStatus(o);
+        const archivedAt = o.archived_at ? new Date(o.archived_at).toLocaleString() : '';
 
         omTitle.textContent = `Ordine ${orderNo}${clientName ? ' — ' + clientName : ''}`;
 
         let html = `<div><strong>Data:</strong> ${created ? new Date(created).toLocaleString() : ''}</div>`;
         html += `<div><strong>Totale:</strong> ${eur(o.total)}</div>`;
+        html += `<div><strong>Stato:</strong> ${esc(statusText)}${archivedAt ? ' — ' + esc(archivedAt) : ''}</div>`;
         html += `<h4 style="margin-top:12px">Articoli</h4>`;
         html += '<div class="order-detail">';
         for(const it of (o.items||[])){
@@ -414,6 +436,7 @@
         omTransmit.addEventListener('click', async ()=>{
           if (!currentOrder) return;
           if (currentOrder.id == null || currentOrder.id === '') return alert('ID ordine mancante');
+          if (isArchived(currentOrder)) return alert('Ordine archiviato: non puoi trasmetterlo.');
 
           omTransmit.disabled = true;
 
@@ -442,6 +465,44 @@
         });
       }
 
+      if (omArchive){
+        omArchive.addEventListener('click', async ()=>{
+          if (!currentOrder) return;
+          if (currentOrder.id == null || currentOrder.id === '') return alert('ID ordine mancante');
+          if (isArchived(currentOrder)) return;
+
+          const orderNo = formatOrderNo(currentOrder);
+          const clientName = formatClientName(currentOrder);
+
+          const ok = confirm(`Archiviare l'ordine ${orderNo}${clientName ? ' — ' + clientName : ''}?\n\nDopo l'archiviazione non verrà più mostrato a Danea.`);
+          if (!ok) return;
+
+          omArchive.disabled = true;
+
+          try{
+            const nowIso = new Date().toISOString();
+
+            const { error } = await sb
+              .from('orders_confirmed')
+              .update({ status: 'Archiviato', archived_at: nowIso })
+              .eq('id', currentOrder.id);
+
+            if (error) throw error;
+
+            currentOrder.status = 'Archiviato';
+            currentOrder.archived_at = nowIso;
+
+            render();
+            updateTransmitButtonState();
+            alert('Ordine archiviato.');
+          }catch(e){
+            console.error(e);
+            alert('Errore durante archiviazione (verifica che esista la colonna archived_at e permessi RLS).');
+            updateTransmitButtonState();
+          }
+        });
+      }
+
       (async ()=>{
         const ok = await guardAdmin();
         if (!ok) return;
@@ -465,4 +526,3 @@
   </script>
 </body>
 </html>
-
