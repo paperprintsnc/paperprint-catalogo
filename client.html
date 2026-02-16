@@ -87,6 +87,22 @@
     .pp-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#111827;color:#fff;
       padding:10px 14px;border-radius:14px;font-weight:900;box-shadow:0 18px 60px rgba(2,6,23,.18);z-index:20000;display:none}
     .pp-toast.show{display:block}
+
+    /* MODALE DATI FISCALI (NUOVO) */
+    .pp-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:20000}
+    .pp-modal.open{display:flex}
+    .pp-modal-box{width:520px;max-width:calc(100vw - 24px);background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:16px;
+      box-shadow:0 18px 60px rgba(2,6,23,.18);overflow:hidden}
+    .pp-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+      background:linear-gradient(180deg, rgba(96,165,250,.35), rgba(255,255,255,0));border-bottom:1px solid rgba(15,23,42,.08)}
+    .pp-modal-title{font-weight:900;color:#0f172a}
+    .pp-modal-x{width:34px;height:34px;border-radius:12px;border:1px solid rgba(15,23,42,.12);background:#fff;cursor:pointer;font-size:16px;line-height:1}
+    .pp-modal-body{padding:14px}
+    .pp-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+    .pp-label{font-weight:900;color:#0f172a;font-size:13px}
+    .pp-input{border:1px solid rgba(16,24,40,.12);border-radius:12px;padding:10px 12px;font-weight:800;outline:none}
+    .pp-help{color:#64748b;font-size:12px;font-weight:800}
+    .pp-modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:12px 14px;border-top:1px solid rgba(15,23,42,.08);background:rgba(248,250,252,.8)}
   </style>
 </head>
 <body>
@@ -102,6 +118,10 @@
           <input id="articleSearch" type="search" placeholder="Cerca per SKU o descrizione…">
           <button class="btn" id="btnSearch" type="button">Cerca Articolo</button>
         </div>
+
+        <!-- NUOVO: Dati fiscali (solo cliente) -->
+        <button class="btn btn-secondary" id="btnFiscal" type="button" style="display:none">Dati Fiscali</button>
+
         <button class="btn btn-cart" id="btnCart" type="button" title="Carrello">
           🛒 Carrello <span class="cart-badge" id="cartBadge">0</span>
         </button>
@@ -146,6 +166,32 @@
 
   <div class="pp-toast" id="toast" aria-live="polite"></div>
 
+  <!-- MODALE DATI FISCALI (NUOVO) -->
+  <div class="pp-modal" id="fiscalModal" role="dialog" aria-hidden="true">
+    <div class="pp-modal-box">
+      <div class="pp-modal-head">
+        <div class="pp-modal-title">Dati fiscali (per fatturazione)</div>
+        <button class="pp-modal-x" id="fiscalClose" type="button">✕</button>
+      </div>
+      <div class="pp-modal-body">
+        <div class="pp-field">
+          <div class="pp-label">Partita IVA</div>
+          <input class="pp-input" id="vatInput" placeholder="Es. 01234567890" inputmode="numeric" autocomplete="off">
+          <div class="pp-help">Inserisci 11 cifre (senza spazi). Se scrivi “IT…”, lo tolgo io.</div>
+        </div>
+        <div class="pp-field" style="margin-bottom:0">
+          <div class="pp-label">Codice Fiscale</div>
+          <input class="pp-input" id="cfInput" placeholder="Es. RSSMRA80A01H501U" autocomplete="off">
+          <div class="pp-help">Inserisci 16 caratteri (senza spazi).</div>
+        </div>
+      </div>
+      <div class="pp-modal-foot">
+        <button class="btn btn-secondary" id="fiscalCancel" type="button">Annulla</button>
+        <button class="btn" id="fiscalSave" type="button">Salva</button>
+      </div>
+    </div>
+  </div>
+
   <script>
   (function(){
     const FEED_JSON_PATH = 'output/feed_prodotti.json';
@@ -171,6 +217,15 @@
     const popClear = document.getElementById('cartPopClear');
     const popList = document.getElementById('cartPopList');
 
+    // NUOVO: fiscal modal elements
+    const btnFiscal = document.getElementById('btnFiscal');
+    const fiscalModal = document.getElementById('fiscalModal');
+    const fiscalClose = document.getElementById('fiscalClose');
+    const fiscalCancel = document.getElementById('fiscalCancel');
+    const fiscalSave = document.getElementById('fiscalSave');
+    const vatInput = document.getElementById('vatInput');
+    const cfInput = document.getElementById('cfInput');
+
     const sb = (window.__pp_supabase_client)
       ? window.__pp_supabase_client
       : window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -180,6 +235,9 @@
     let IS_ASSIST = false;
     let EFFECTIVE_CLIENT_ID = '';
     let ASSIST_QS = '';
+
+    // cache profilo corrente
+    let ME = null;
 
     function setClientCartKey(userId){
       CART_KEY = `${LEGACY_CART_KEY}_${userId}`;
@@ -286,6 +344,68 @@
       if (!pop.classList.contains('open')) return;
       if (e.target.closest('#cartPopover') || e.target.closest('#btnCart')) return;
       closePopover();
+    });
+
+    // ===== MODALE DATI FISCALI (NUOVO) =====
+    function normalizeVat(v){
+      let x = String(v || '').trim().replace(/\s+/g,'').toUpperCase();
+      x = x.replace(/^IT/, ''); // se scrivono IT0123...
+      return x || '';
+    }
+    function normalizeCf(v){
+      return String(v || '').trim().replace(/\s+/g,'').toUpperCase() || '';
+    }
+    function openFiscalModal(){
+      if (!fiscalModal) return;
+      if (!ME) return;
+      vatInput.value = ME.vat_number ? String(ME.vat_number) : '';
+      cfInput.value = ME.fiscal_code ? String(ME.fiscal_code) : '';
+      fiscalModal.classList.add('open');
+      fiscalModal.setAttribute('aria-hidden','false');
+    }
+    function closeFiscalModal(){
+      if (!fiscalModal) return;
+      fiscalModal.classList.remove('open');
+      fiscalModal.setAttribute('aria-hidden','true');
+    }
+    fiscalClose?.addEventListener('click', closeFiscalModal);
+    fiscalCancel?.addEventListener('click', closeFiscalModal);
+    fiscalModal?.addEventListener('click', (e)=>{
+      if (e.target === fiscalModal) closeFiscalModal();
+    });
+
+    fiscalSave?.addEventListener('click', async ()=>{
+      try{
+        if (!ME?.id) {
+          showToast('Sessione non valida');
+          return;
+        }
+        fiscalSave.disabled = true;
+
+        const vat = normalizeVat(vatInput.value);
+        const cf = normalizeCf(cfInput.value);
+
+        const { error } = await sb
+          .from('profiles')
+          .update({
+            vat_number: vat || null,
+            fiscal_code: cf || null
+          })
+          .eq('id', ME.id);
+
+        if (error) throw error;
+
+        ME.vat_number = vat || null;
+        ME.fiscal_code = cf || null;
+
+        showToast('Dati fiscali salvati');
+        closeFiscalModal();
+      }catch(e){
+        console.error(e);
+        alert('Errore salvataggio dati fiscali (permessi/RLS su profiles).');
+      }finally{
+        if (fiscalSave) fiscalSave.disabled = false;
+      }
     });
 
     // ===== Feed utils (ported from catalogo_admin) =====
@@ -397,11 +517,11 @@
           showToast('Nessun articolo trovato');
           return;
         }
-        showToast(`😊 Trovato in: ${found.cat}`);
+        showToast(`Trovato in: ${found.cat}`);
         setTimeout(()=>{
           const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
           window.location.href = `categoria_client.html?cat=${encodeURIComponent(found.cat)}&q=${encodeURIComponent(q)}${extra}`;
-        }, 2000);
+        }, 1200);
       } finally {
         searchBtn.disabled = false;
       }
@@ -419,7 +539,6 @@
     }
 
     function renderCategories(items){
-      // count per category
       const counts = new Map();
       for (const raw of items){
         const it = normalizeItem(raw);
@@ -446,7 +565,6 @@
         grid.appendChild(a);
       }
 
-      // show subtitle with total
       const totalCats = cats.length;
       const totalItems = items.length;
       const st = document.getElementById('subTitle');
@@ -454,7 +572,6 @@
     }
 
     async function guardAndInit(){
-      // guard
       const { data: userData } = await sb.auth.getUser();
       const user = userData?.user;
       if (!user){
@@ -462,18 +579,25 @@
         return;
       }
 
-      const { data: me } = await sb.from('profiles').select('role,is_active,full_name,email').eq('id', user.id).single();
+      // MODIFICATO: includo vat_number e fiscal_code
+      const { data: me } = await sb
+        .from('profiles')
+        .select('id, role, is_active, full_name, email, vat_number, fiscal_code')
+        .eq('id', user.id)
+        .single();
+
       if (!me || me.is_active === false){
         try{ await sb.auth.signOut(); }catch(_){ }
         window.location.href = 'client-login.html';
         return;
       }
 
+      ME = me;
+
       const role = String(me.role || '').toLowerCase();
       IS_ASSIST = (role === 'admin' && !!ASSIST_CLIENT_ID);
 
       if (role === 'client'){
-        // Non permettere ai client di forzare as_client diverso dal proprio
         if (ASSIST_CLIENT_ID && String(ASSIST_CLIENT_ID) !== String(user.id)){
           window.location.href = 'client.html';
           return;
@@ -492,10 +616,8 @@
 
       ASSIST_QS = IS_ASSIST ? `?as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
 
-      // carrello per-utente (in assistenza: per il cliente selezionato)
       setClientCartKey(EFFECTIVE_CLIENT_ID);
 
-      // Preserva as_client nei link base
       try{
         const brandLink = document.querySelector('a.brand[href="client.html"]');
         if (brandLink) brandLink.setAttribute('href', `client.html${ASSIST_QS}`);
@@ -503,13 +625,19 @@
         if (cartOpen) cartOpen.setAttribute('href', `carrello.html${ASSIST_QS}`);
       }catch(_){ }
 
-      // Welcome: in assistenza mostra il cliente selezionato
       let assistedName = '';
       if (IS_ASSIST){
         try{ assistedName = (localStorage.getItem('pp_assist_client_name') || '').trim(); }catch(_){ }
       }
       const displayName = (IS_ASSIST ? (assistedName || 'Cliente') : (me.full_name || me.email || 'Cliente')).trim();
       if (welcomeEl) welcomeEl.textContent = `Benvenuto: ${displayName}`;
+
+      // Mostra pulsante dati fiscali solo al cliente (non in assistenza)
+      if (btnFiscal) {
+        const showFiscal = (role === 'client');
+        btnFiscal.style.display = showFiscal ? '' : 'none';
+        if (showFiscal) btnFiscal.addEventListener('click', openFiscalModal);
+      }
 
       btnLogout?.addEventListener('click', async ()=>{
         try{ await sb.auth.signOut(); }catch(_){ }
@@ -518,7 +646,6 @@
 
       updateCartBadge();
 
-      // load feed
       const items = (await loadItemsFromFeed());
       renderCategories(items);
       const status = await loadFeedStatus();
@@ -533,7 +660,6 @@
       }
     }
 
-    // keep badge updated
     window.addEventListener('storage', (e)=>{ if (e.key === CART_KEY) updateCartBadge(); });
 
     guardAndInit().catch((e)=>{
