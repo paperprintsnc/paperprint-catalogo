@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-19 06:11:10",
-  "count": 13645,
+  "generated_at": "2026-02-19 07:55:19",
+  "count": 13647,
   "items": [
     {
       "ItemCode": "100016",
@@ -9437,6 +9437,20 @@
       "S": "https://asset.pbs-holding.com/asset/S/725/1895725.jpg",
       "L": "https://asset.pbs-holding.com/asset/L/725/1895725.jpg",
       "XL": "https://asset.pbs-holding.com/asset/XL/725/1895725.jpg"
+    },
+    {
+      "ItemCode": "101746",
+      "Descrizione": "Carrello portapacchi Serena Group in lamiera rinforzata bianco/blu 74x48x83 cm portata 150 kg - - PZS150",
+      "DescrizioneLunga": "Carrello in lamiera rinforzata con maniglia tubolare ripiegabile tramite comando a piede. Piattaforma bordata in gomma e piano di carico rivestito con antiscivolo. Dotato di ruote in gomma piena (cm 10). Dimensioni: cm 74 x 48 x h. 83. Portata massima: 150 kg. Certificazione TUV GS.",
+      "Brand": "",
+      "MacroCategoria": "Servizi generali",
+      "Quantita": 6,
+      "CostoBase": 39.66,
+      "RicaricoPct": 45.0,
+      "PrezzoVendita": 57.51,
+      "S": "https://asset.pbs-holding.com/asset/S/597/1895597.jpg",
+      "L": "https://asset.pbs-holding.com/asset/L/597/1895597.jpg",
+      "XL": "https://asset.pbs-holding.com/asset/XL/597/1895597.jpg"
     },
     {
       "ItemCode": "101752",
@@ -110853,6 +110867,20 @@
       "S": "https://asset.pbs-holding.com/asset/S/484/2603484.jpg",
       "L": "https://asset.pbs-holding.com/asset/L/484/2603484.jpg",
       "XL": "https://asset.pbs-holding.com/asset/XL/484/2603484.jpg"
+    },
+    {
+      "ItemCode": "128166",
+      "Descrizione": "Poggiapiedi regolabile in altezza Kensington SmartFit® nero K52789WW",
+      "DescrizioneLunga": "Il poggiapiedi SoleMate migliora la postura e la circolazione, assicurando sollievo a gambe e piedi mentre lavori alla scrivania. Il poggiapiedi è regolabile sia in altezza che in angolazione per assicurare il miglior comfort della zona lombare. Colore nero. Dimensioni 360 x 545 x H. 90 mm.",
+      "Brand": "",
+      "MacroCategoria": "Informatica",
+      "Quantita": 4,
+      "CostoBase": 51.98,
+      "RicaricoPct": 15.0,
+      "PrezzoVendita": 59.78,
+      "S": "https://asset.pbs-holding.com/asset/S/491/2603491.jpg",
+      "L": "https://asset.pbs-holding.com/asset/L/491/2603491.jpg",
+      "XL": "https://asset.pbs-holding.com/asset/XL/491/2603491.jpg"
     },
     {
       "ItemCode": "128167",
