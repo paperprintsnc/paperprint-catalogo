@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-20 06:00:38",
-  "count": 13699,
+  "generated_at": "2026-02-20 07:11:42",
+  "count": 13700,
   "items": [
     {
       "ItemCode": "100016",
@@ -13889,6 +13889,20 @@
       "S": "https://asset.pbs-holding.com/asset/S/410/1848410.jpg",
       "L": "https://asset.pbs-holding.com/asset/L/410/1848410.jpg",
       "XL": "https://asset.pbs-holding.com/asset/XL/410/1848410.jpg"
+    },
+    {
+      "ItemCode": "102403",
+      "Descrizione": "Fettucce Elastiche Viva in busta in gomma naturale tabacco 150x8 mm conf.1000 gr - G8X150",
+      "DescrizioneLunga": "Fettucce in gomma naturale (para) di colore marrone, diametro 150 x 8 mm, busta da 1000 grammi.",
+      "Brand": "",
+      "MacroCategoria": "Cancelleria",
+      "Quantita": 114,
+      "CostoBase": 4.83,
+      "RicaricoPct": 70.0,
+      "PrezzoVendita": 8.21,
+      "S": "https://asset.pbs-holding.com/asset/S/341/1848341.jpg",
+      "L": "https://asset.pbs-holding.com/asset/L/341/1848341.jpg",
+      "XL": "https://asset.pbs-holding.com/asset/XL/341/1848341.jpg"
     },
     {
       "ItemCode": "102404",
@@ -130586,7 +130600,7 @@
       "DescrizioneLunga": "Lascia che le tue idee fluiscano liberamente sulla pagina con una gamma di inchiostri unici e avventurosi come la tua immaginazione. Formula di alta qualità per prestazioni e comfort di scrittura superiori. Compatibile con tutte le penne stilografiche Waterman. Scatola da 8 cartucce d'inchiostro. Colore: blu.",
       "Brand": "",
       "MacroCategoria": "Scrittura",
-      "Quantita": 30,
+      "Quantita": 23,
       "CostoBase": 2.71,
       "RicaricoPct": 65.0,
       "PrezzoVendita": 4.47,
@@ -148869,11 +148883,11 @@
       "Descrizione": "Fineliner Donau 0,4 mm colori assortiti - conf. 10 pz - 330257099",
       "DescrizioneLunga": "Fineliner con punta rivestita in metallo dal tratto extra-fine. Realizzati con inchiostro a base d?acqua. Ampiezza tratto 0,4 mm. Cappuccio e fusto nello stesso colore di scrittura. Disponibili in 10 colori assortiti: giallo, arancione, rosa, verde scuro, verde chiaro, rosso, viola, marrone, blu scuro, nero. Ideali per scrivere. Confezione composta da 10 pezzi.",
       "Brand": "",
-      "MacroCategoria": "Disegno e didattica",
+      "MacroCategoria": "Scrittura",
       "Quantita": 298,
       "CostoBase": 1.99,
-      "RicaricoPct": 55.0,
-      "PrezzoVendita": 3.08,
+      "RicaricoPct": 65.0,
+      "PrezzoVendita": 3.28,
       "S": "https://asset.pbs-holding.com/asset/MLO/552/1642552.png",
       "L": "https://asset.pbs-holding.com/asset/L/552/1642552.jpg",
       "XL": "https://asset.pbs-holding.com/asset/XL/552/1642552.jpg"
