@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Categoria</title>
+
+  <link rel="stylesheet" href="style.css" />
+
   <style>
     :root{
       --bg:#f8fafc; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
@@ -51,19 +54,6 @@
     .pp-cart-popover-name{font-weight:700;font-size:13px}
     .pp-cart-popover-sub{display:flex;gap:10px;color:#64748b;font-size:12px}
     .pp-cart-popover-del{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 7px;cursor:pointer}
-
-    .pp-confirm-overlay{position:fixed;inset:0;background:rgba(2,6,23,.48);display:none;align-items:center;justify-content:center;z-index:100}
-    .pp-confirm{width:min(460px,94vw);background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.3);overflow:hidden}
-    .pp-confirm-head{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--line)}
-    .pp-confirm-icon{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#fee2e2;color:#b91c1c;font-weight:900}
-    .pp-confirm-title{font-weight:900}
-    .pp-confirm-close{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:10px;padding:4px 8px;cursor:pointer}
-    .pp-confirm-body{padding:12px}
-    .pp-confirm-body .lead{font-weight:800;margin-bottom:4px}
-    .pp-confirm-body .msg{color:#475569}
-    .pp-confirm-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
-    .pp-confirm-actions .btn{padding:8px 12px;border-radius:10px;border:1px solid var(--line);cursor:pointer;font-weight:800}
-    .pp-confirm-actions .btn.primary{background:var(--pri);border-color:var(--pri);color:#fff}
 
     .pp-modal-overlay{position:fixed;inset:0;background:rgba(2,6,23,.55);display:none;align-items:center;justify-content:center;z-index:90}
     .pp-modal-overlay.open{display:flex}
@@ -190,6 +180,15 @@
     function esc(s){ return (s??"").toString().replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
     function eur(v){ const n = Number(String(v).replace(",", ".")); return isFinite(n) ? n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €" : ""; }
 
+    function unlockScroll(){
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    }
+    function lockScroll(){
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    }
+
     function loadCart(){ try{ const j = JSON.parse(localStorage.getItem(CART_KEY)||'{"items":[]}'); return (j && Array.isArray(j.items)) ? j : {items:[]}; }catch(_){ return {items:[]}; } }
     function saveCart(cart){ try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(_e){} updateCartBadge(); }
     function cartCount(cart){ return (cart.items||[]).reduce((s,r)=>s+(Number(r.qty)||0),0); }
@@ -271,13 +270,18 @@
     function closeCartPopover(){ const p=document.getElementById("ppCartPopover"); if (p) p.classList.remove("open"); }
     function toggleCartPopover(){ const p=ensureCartPopover(); p.classList.contains("open")?closeCartPopover():openCartPopover(); }
 
-    function openModal(){ modalOverlay.classList.add("open"); document.body.style.overflow="hidden"; }
-    function closeModal(){ modalOverlay.classList.remove("open"); document.body.style.overflow=""; }
+    function openModal(){ modalOverlay.classList.add("open"); lockScroll(); }
+    function closeModal(){ modalOverlay.classList.remove("open"); unlockScroll(); }
+
     modalClose.onclick = closeModal;
     modalOverlay.addEventListener("click",(ev)=>{ if (ev.target===modalOverlay) closeModal(); });
     document.addEventListener("keydown",(ev)=>{ if (ev.key==="Escape") closeModal(); });
 
+    window.addEventListener("pageshow", unlockScroll);
+    document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") unlockScroll(); });
+
     function getQtyStep(){ const m=Number(currentModalItem?.multipleQty||1); return (isFinite(m)&&m>0)?Math.trunc(m):1; }
+    function qtyStepFromItem(it){ const m=Number(it?.multipleQty||1); return (isFinite(m)&&m>0)?Math.trunc(m):1; }
     function setQty(n){ const st=getQtyStep(); let v=Number(n)||st; v=Math.max(st,Math.min(999,v)); v=Math.ceil(v/st)*st; qtyVal.textContent=String(v); }
     qtyUp.onclick = ()=> setQty(Number(qtyVal.textContent||1)+getQtyStep());
     qtyDown.onclick = ()=> setQty(Number(qtyVal.textContent||1)-getQtyStep());
@@ -428,18 +432,26 @@
 
     gridEl.addEventListener("click",(ev)=>{
       const d=ev.target.closest("button.details"); if(d){ openDetailsByCode(d.dataset.code); return; }
-      const a=ev.target.closest("button.add"); if(a){ const it=itemByCode.get(String(a.dataset.code||"")); addToCart(it,1); renderCartPopover(); }
+      const a=ev.target.closest("button.add");
+      if(a){
+        const it=itemByCode.get(String(a.dataset.code||""));
+        if(!it) return;
+        addToCart(it, qtyStepFromItem(it));
+        renderCartPopover();
+      }
     });
 
     async function init(){
       titleEl.textContent = cat || "Categoria";
       subEl.textContent = cat ? "Prodotti della categoria selezionata" : "Nessuna categoria specificata.";
       footEl.innerHTML = `Fonte dati: <code>output/feed_prodotti.json</code> (fallback <code>output/feed_prodotti.csv</code>)`;
-      if(!cat){ emptyEl.style.display="block"; emptyEl.textContent="Apri la pagina con ?cat=..."; return; }
+      if(!cat){ emptyEl.style.display="block"; emptyEl.textContent="Apri la pagina con ?cat=..."; updateCartBadge(); unlockScroll(); return; }
 
       let raw=[];
       try{ raw = await fetchData(); }catch(_){
         emptyEl.style.display="block"; emptyEl.textContent="Errore caricamento feed.";
+        updateCartBadge();
+        unlockScroll();
         return;
       }
       const items = raw.map(normalizeItem).filter(x=>(x.cat||"").trim()!=="");
@@ -449,6 +461,7 @@
       render(applyFilter(inCat));
       qEl.addEventListener("input", ()=>render(applyFilter(inCat)));
       updateCartBadge();
+      unlockScroll();
     }
 
     init();
