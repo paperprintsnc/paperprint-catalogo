@@ -15,6 +15,44 @@
     *{box-sizing:border-box}
     body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
     .wrap{max-width:1200px;margin:0 auto;padding:16px}
+
+    /* Header sticky + back buttons */
+    .cat-sticky{
+      position:sticky;
+      top:0;
+      z-index:120;
+      background:rgba(248,250,252,.94);
+      backdrop-filter:blur(6px);
+      border-bottom:1px solid var(--line);
+      margin:-16px -16px 12px -16px;
+      padding:10px 16px;
+    }
+    .cat-sticky-row{
+      max-width:1200px;
+      margin:0 auto;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .cat-back{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 11px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:#fff;
+      color:#0f172a;
+      text-decoration:none;
+      font-weight:700;
+      cursor:pointer;
+      line-height:1;
+    }
+    .cat-back:hover{background:#f8fafc}
+    .cat-title-wrap{margin-right:auto;min-width:260px}
+    @media (max-width:760px){ .cat-title-wrap{width:100%;order:3} }
+
     header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
     h1{margin:0;font-size:28px}
     .sub{color:var(--muted);font-size:14px}
@@ -40,7 +78,7 @@
     #empty{display:none;padding:14px;border:1px dashed #cbd5e1;border-radius:12px;background:#fff}
     footer{margin:18px 0;color:#64748b;font-size:12px}
 
-    .pp-cart-popover{position:fixed;top:62px;right:16px;z-index:80;width:min(420px,92vw);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.2);display:none;overflow:hidden}
+    .pp-cart-popover{position:fixed;top:72px;right:16px;z-index:80;width:min(420px,92vw);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,.2);display:none;overflow:hidden}
     .pp-cart-popover.open{display:block}
     .pp-cart-popover-head,.pp-cart-popover-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
     .pp-cart-popover-foot{border-top:1px solid var(--line);border-bottom:none}
@@ -93,13 +131,20 @@
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <div>
-        <h1 id="pageTitle">Categoria</h1>
-        <div id="pageSub" class="sub"></div>
-      </div>
-      <div class="actions">
-        <input id="q" class="search" placeholder="Cerca per nome, brand o codice..." />
+    <header class="cat-sticky">
+      <div class="cat-sticky-row">
+        <button type="button" class="cat-back" id="btnBack">← Indietro</button>
+        <a class="cat-back" href="index.html">🏠 Home</a>
+        <a class="cat-back" href="catalogo.html">📂 Categorie</a>
+
+        <div class="cat-title-wrap">
+          <h1 id="pageTitle">Categoria</h1>
+          <div id="pageSub" class="sub"></div>
+        </div>
+
+        <div class="actions">
+          <input id="q" class="search" placeholder="Cerca per nome, brand o codice..." />
+        </div>
       </div>
     </header>
 
@@ -159,6 +204,7 @@
     const metaEl = document.getElementById("meta");
     const qEl = document.getElementById("q");
     const footEl = document.getElementById("foot");
+    const btnBack = document.getElementById("btnBack");
     const itemByCode = new Map();
     const CART_KEY = "pp_cart_v1";
     let currentModalItem = null;
@@ -276,6 +322,13 @@
     modalClose.onclick = closeModal;
     modalOverlay.addEventListener("click",(ev)=>{ if (ev.target===modalOverlay) closeModal(); });
     document.addEventListener("keydown",(ev)=>{ if (ev.key==="Escape") closeModal(); });
+
+    if (btnBack){
+      btnBack.addEventListener("click", ()=>{
+        if (history.length > 1) history.back();
+        else location.href = "catalogo.html";
+      });
+    }
 
     window.addEventListener("pageshow", unlockScroll);
     document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") unlockScroll(); });
