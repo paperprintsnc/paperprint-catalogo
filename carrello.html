@@ -350,34 +350,36 @@
         </div>
         <div class="price">${eur(it.price) || "—"}</div>
         <div class="qty">
-          <button type="button" class="qdown" title="Diminuisci di ${step}">−</button>
-          <span class="qval">${shownQty}</span>
-          <button type="button" class="qup" title="Aumenta di ${step}">+</button>
+         <button type="button" class="qdown" data-step="${step}" data-multiple-qty="${step}" title="Diminuisci di ${step}">−</button>
+        <span class="qval">${shownQty}</span>
+        <button type="button" class="qup" data-step="${step}" data-multiple-qty="${step}" title="Aumenta di ${step}">+</button>
         </div>
         <button type="button" class="remove" title="Rimuovi">✕</button>
       `;
 
-      row.querySelector(".qup").addEventListener("click", ()=>{
-        const c = loadCart();
-        const x = c.items.find(a => String(a.code) === String(it.code));
-        if (x){
-          const st = getItemStep(x);
-          const base = normalizeQtyForStep(x.qty, st);
-          x.qty = normalizeQtyForStep(base + st, st);
-        }
-        saveCart(c); render();
-      });
+      row.querySelector(".qup").addEventListener("click", (ev)=>{
+  const stBtn = Number(ev.currentTarget?.dataset?.step || 0);
+  const c = loadCart();
+  const x = c.items.find(a => String(a.code) === String(it.code));
+  if (x){
+    const st = (isFinite(stBtn) && stBtn > 0) ? stBtn : getItemStep(x);
+    const base = normalizeQtyForStep(x.qty, st);
+    x.qty = normalizeQtyForStep(base + st, st);
+  }
+  saveCart(c); render();
+});
 
-      row.querySelector(".qdown").addEventListener("click", ()=>{
-        const c = loadCart();
-        const x = c.items.find(a => String(a.code) === String(it.code));
-        if (x){
-          const st = getItemStep(x);
-          const base = normalizeQtyForStep(x.qty, st);
-          x.qty = normalizeQtyForStep(base - st, st);
-        }
-        saveCart(c); render();
-      });
+row.querySelector(".qdown").addEventListener("click", (ev)=>{
+  const stBtn = Number(ev.currentTarget?.dataset?.step || 0);
+  const c = loadCart();
+  const x = c.items.find(a => String(a.code) === String(it.code));
+  if (x){
+    const st = (isFinite(stBtn) && stBtn > 0) ? stBtn : getItemStep(x);
+    const base = normalizeQtyForStep(x.qty, st);
+    x.qty = normalizeQtyForStep(base - st, st);
+  }
+  saveCart(c); render();
+});
 
       row.querySelector(".remove").addEventListener("click", async ()=>{
         const ok = await confirmDialogCart('Rimuovere questo articolo dal carrello?');
