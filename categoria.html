@@ -14,25 +14,42 @@
     body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
     .wrap{max-width:1200px;margin:0 auto;padding:16px}
 
-    /* Header sticky + back buttons */
+    /* Header sticky full width */
     .cat-sticky{
       position:sticky;
       top:0;
       z-index:120;
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      margin-bottom:12px;
       background:linear-gradient(180deg, #dbe6ef, rgba(248, 250, 252, 0.6));
       backdrop-filter:blur(6px);
       border-bottom:1px solid var(--line);
-      margin:-16px -16px 12px -16px;
-      padding:28px 16px;
+      padding:10px 16px;
     }
-    .cat-sticky-row{
+    .cat-sticky-inner{
       max-width:1200px;
       margin:0 auto;
       display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .cat-sticky-row{
+      display:grid;
+      grid-template-columns:minmax(260px,1fr) minmax(280px,420px) auto;
       align-items:center;
       gap:10px;
-      flex-wrap:wrap;
     }
+    .cat-title-wrap{min-width:240px}
+    .cat-title-wrap h1{margin:0;font-size:40px;line-height:1.1}
+    .sub{color:var(--muted);font-size:14px}
+    .meta-head{font-weight:900;color:#334155;font-size:32px;line-height:1.1;margin-top:2px}
+
+    .actions{display:flex;align-items:center}
+    .search{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+
+    .cat-nav{display:flex;gap:8px;align-items:center;justify-self:end;flex-wrap:wrap}
     .cat-back{
       display:inline-flex;
       align-items:center;
@@ -48,15 +65,13 @@
       line-height:1;
     }
     .cat-back:hover{background:#f8fafc}
-    .cat-title-wrap{margin-right:auto;min-width:260px}
-    @media (max-width:760px){ .cat-title-wrap{width:100%;order:3} }
 
-    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-    h1{margin:0;font-size:28px}
-    .sub{color:var(--muted);font-size:14px}
-    .actions{display:flex;gap:8px;align-items:center}
-    .search{width:min(420px,70vw);padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
-    .meta{font-weight:700;color:#334155;margin:10px 0}
+    @media (max-width:980px){
+      .cat-sticky-row{grid-template-columns:1fr;gap:8px}
+      .cat-nav{justify-self:start}
+      .actions{order:3}
+    }
+
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 8px 20px rgba(15,23,42,.05)}
     .img{position:relative;min-height:180px;background:#f1f5f9;display:flex;align-items:center;justify-content:center}
@@ -130,23 +145,27 @@
 <body>
   <div class="wrap">
     <header class="cat-sticky">
-      <div class="cat-sticky-row">
-        <button type="button" class="cat-back" id="btnBack">← Indietro</button>
-        <a class="cat-back" href="index.html">🏠 Home</a>
-        <a class="cat-back" href="catalogo_admin.html">📂 Categorie</a>
+      <div class="cat-sticky-inner">
+        <div class="cat-sticky-row">
+          <div class="cat-title-wrap">
+            <h1 id="pageTitle">Categoria</h1>
+            <div id="pageSub" class="sub"></div>
+            <div id="meta" class="meta-head">0 articoli</div>
+          </div>
 
-        <div class="cat-title-wrap">
-          <h1 id="pageTitle">Categoria</h1>
-          <div id="pageSub" class="sub"></div>
-        </div>
+          <div class="actions">
+            <input id="q" class="search" placeholder="Cerca per nome, brand o codice..." />
+          </div>
 
-        <div class="actions">
-          <input id="q" class="search" placeholder="Cerca per nome, brand o codice..." />
+          <div class="cat-nav">
+            <button type="button" class="cat-back" id="btnBack">← Indietro</button>
+            <a class="cat-back" href="index.html">🏠 Home</a>
+            <a class="cat-back" href="catalogo_admin.html">📂 Categorie</a>
+          </div>
         </div>
       </div>
     </header>
 
-    <div id="meta" class="meta">0 articoli</div>
     <div id="empty"></div>
     <div id="grid" class="grid"></div>
     <footer id="foot"></footer>
@@ -246,14 +265,14 @@
     function ensureCartBtn(){
       let b = document.getElementById("ppCartBtn");
       if (b) return b;
-      const actions = document.querySelector(".actions");
+      const nav = document.querySelector(".cat-nav");
       b = document.createElement("button");
       b.id = "ppCartBtn";
       b.type = "button";
       b.innerHTML = `🛒 <span id="ppCartCount">0</span>`;
       b.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;font-weight:800";
       b.addEventListener("click", (e)=>{ e.preventDefault(); toggleCartPopover(); });
-      actions.insertBefore(b, actions.firstChild);
+      nav.appendChild(b);
       return b;
     }
     function updateCartBadge(){
