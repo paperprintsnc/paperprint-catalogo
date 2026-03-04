@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Categoria</title>
 
-  <link rel="stylesheet" href="style.css" />
-
   <style>
     :root{
       --bg:#f8fafc; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
@@ -292,7 +290,7 @@
       const cart = loadCart();
       const row = cart.items.find(r=>String(r.code)===String(it.code));
       if (row) row.qty = Math.min(999, (Number(row.qty)||0)+q);
-      else cart.items.push({code:it.code,name:it.name||"",price:it.sell||"",qty:q,img:it.imgS||it.imgL||it.imgXL||""});
+      else cart.items.push({code:it.code,name:it.name||"",price:it.sell||"",qty:q,img:it.imgS||it.imgL||it.imgXL||"",multipleQty:qtyStepFromItem(it)});
       saveCart(cart);
     }
     addCartBtn.onclick = ()=>{ if(!currentModalItem) return; addToCart(currentModalItem, Number(qtyVal.textContent||1)); renderCartPopover(); closeModal(); };
