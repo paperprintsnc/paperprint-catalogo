@@ -224,6 +224,12 @@
     function esc(s){ return (s??"").toString().replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
     function eur(v){ const n = Number(String(v).replace(",", ".")); return isFinite(n) ? n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €" : ""; }
 
+    function toStep(v){
+      const s = String(v ?? "").trim().replace(",", ".");
+      const n = Number(s.replace(/[^\d.]/g, ""));
+      return (isFinite(n) && n > 0) ? Math.max(1, Math.round(n)) : 1;
+    }
+
     function unlockScroll(){
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
@@ -331,19 +337,36 @@
     window.addEventListener("pageshow", unlockScroll);
     document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") unlockScroll(); });
 
-    function getQtyStep(){ const m=Number(currentModalItem?.multipleQty||1); return (isFinite(m)&&m>0)?Math.trunc(m):1; }
-    function qtyStepFromItem(it){ const m=Number(it?.multipleQty||1); return (isFinite(m)&&m>0)?Math.trunc(m):1; }
+    function getQtyStep(){ return toStep(currentModalItem?.multipleQty); }
+    function qtyStepFromItem(it){ return toStep(it?.multipleQty); }
     function setQty(n){ const st=getQtyStep(); let v=Number(n)||st; v=Math.max(st,Math.min(999,v)); v=Math.ceil(v/st)*st; qtyVal.textContent=String(v); }
     qtyUp.onclick = ()=> setQty(Number(qtyVal.textContent||1)+getQtyStep());
     qtyDown.onclick = ()=> setQty(Number(qtyVal.textContent||1)-getQtyStep());
 
     function addToCart(it, qty){
       if (!it || !it.code) return;
-      const q = Math.max(1, Math.min(999, Number(qty)||1));
+
+      const st = toStep(it.multipleQty);
+      let q = Math.max(1, Math.min(999, Number(qty) || st));
+      q = Math.ceil(q / st) * st;
+
       const cart = loadCart();
-      const row = cart.items.find(r=>String(r.code)===String(it.code));
-      if (row) row.qty = Math.min(999, (Number(row.qty)||0)+q);
-      else cart.items.push({code:it.code,name:it.name||"",price:it.sell||"",qty:q,img:it.imgS||it.imgL||it.imgXL||""});
+      const row = cart.items.find(r => String(r.code) === String(it.code));
+
+      if (row){
+        row.multipleQty = toStep(row.multipleQty || st);
+        row.qty = Math.min(999, (Number(row.qty) || 0) + q);
+      } else {
+        cart.items.push({
+          code: it.code,
+          name: it.name || "",
+          price: it.sell || "",
+          qty: q,
+          img: it.imgS || it.imgL || it.imgXL || "",
+          multipleQty: st
+        });
+      }
+
       saveCart(cart);
     }
     addCartBtn.onclick = ()=>{ if(!currentModalItem) return; addToCart(currentModalItem, Number(qtyVal.textContent||1)); renderCartPopover(); closeModal(); };
@@ -400,7 +423,7 @@
         imgS:String(get("S","ImageS","AssetS","ImgS","asset_s")||"").trim(),
         imgL:String(get("L","ImageL","AssetL","ImgL","asset_l","Asset Resolution L","AssetResolutionL")||"").trim(),
         imgXL:String(get("XL","ImageXL","AssetXL","ImgXL","asset_xl","Asset Resolution XL","AssetResolutionXL")||"").trim(),
-        multipleQty:Number(get("MultipleQty","multipleqty","Multiple Qty","Multiplo"))||1,
+        multipleQty:toStep(get("MultipleQty","multipleqty","Multiple Qty","Multiplo","multiple_qty","multipleQta","MultiQty")),
         attrNome1:String(get("AttributoNome1","Attribute name (italian) 1")||"").trim(),
         attrValore1:String(get("AttributoValore1","Attribute value (italian) 1")||"").trim(),
         attrUnita1:String(get("AttributoUnita1","Unit 1")||"").trim(),
