@@ -373,8 +373,17 @@
       });
     }
 
-    window.addEventListener("pageshow", unlockScroll);
-    document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") unlockScroll(); });
+    window.addEventListener("pageshow", () => {
+      unlockScroll();
+      closeCartPopover();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if(document.visibilityState === "visible"){
+        unlockScroll();
+        closeCartPopover();
+      }
+    });
 
     function getQtyStep(){ return toStep(currentModalItem?.multipleQty); }
     function qtyStepFromItem(it){ return toStep(it?.multipleQty); }
