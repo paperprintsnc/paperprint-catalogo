@@ -209,6 +209,14 @@
       return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
     }
 
+    function stripAsClientFromUrl(){
+      const p = new URLSearchParams(location.search);
+      if (!p.has('as_client')) return;
+      p.delete('as_client');
+      const qs = p.toString();
+      history.replaceState({}, '', `${location.pathname}${qs ? `?${qs}` : ''}`);
+    }
+
     function showToast(text){
       if (!toastEl) return;
       toastEl.textContent = text || '';
@@ -446,7 +454,7 @@
         const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
         const a = document.createElement('a');
         a.className = 'cat-tile';
-        a.href = `client.html?cat=${encodeURIComponent(c.name)}${extra}`;
+        a.href = `categoria_client.html?cat=${encodeURIComponent(c.name)}${extra}`;
 
         const nameWrap = document.createElement('div');
         nameWrap.className = 'cat-name';
@@ -490,7 +498,7 @@
       IS_ASSIST = (role === 'admin' && !!ASSIST_CLIENT_ID);
 
       if (role === 'client'){
-        if (ASSIST_CLIENT_ID && String(ASSIST_CLIENT_ID)!==String(user.id)){ window.location.href='client.html'; return; }
+        if (ASSIST_CLIENT_ID && String(ASSIST_CLIENT_ID)!==String(user.id)){ stripAsClientFromUrl(); }
         EFFECTIVE_CLIENT_ID = user.id;
       } else if (role === 'admin'){
         if (!ASSIST_CLIENT_ID){ window.location.href='admin.html'; return; }
