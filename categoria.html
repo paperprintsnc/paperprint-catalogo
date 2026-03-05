@@ -265,16 +265,36 @@
     function ensureCartBtn(){
       let b = document.getElementById("ppCartBtn");
       if (b) return b;
+
       const nav = document.querySelector(".cat-nav");
       b = document.createElement("button");
       b.id = "ppCartBtn";
       b.type = "button";
       b.innerHTML = `🛒 <span id="ppCartCount">0</span>`;
-      b.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;font-weight:800";
+
+      const setBase = () => {
+        b.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #eab308;border-radius:12px;background:#facc15;color:#1e3a8a;cursor:pointer;font-weight:800;transition:all .15s ease";
+        b.style.transform = "translateY(0)";
+      };
+      const setHover = () => { b.style.background = "#fbbf24"; };
+      const setActive = () => { b.style.background = "#eab308"; b.style.transform = "translateY(1px)"; };
+      const setFocus = () => { b.style.boxShadow = "0 0 0 3px rgba(250,204,21,.35)"; };
+      const clearFocus = () => { b.style.boxShadow = "none"; };
+
+      setBase();
+
+      b.addEventListener("mouseenter", setHover);
+      b.addEventListener("mouseleave", setBase);
+      b.addEventListener("mousedown", setActive);
+      b.addEventListener("mouseup", setHover);
+      b.addEventListener("focus", setFocus);
+      b.addEventListener("blur", () => { clearFocus(); setBase(); });
+
       b.addEventListener("click", (e)=>{ e.preventDefault(); toggleCartPopover(); });
       nav.appendChild(b);
       return b;
     }
+
     function updateCartBadge(){
       ensureCartBtn();
       const c = document.getElementById("ppCartCount");
