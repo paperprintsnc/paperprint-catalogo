@@ -145,8 +145,8 @@
       <div class="cats-grid" id="catsGrid"></div>
     </div>
 
-    <div class="footer-report" id="reportLine">Ultimo Aggiornamento: in attesa…</div>
-    <div class="hint" id="reportHint">(feed da output/feed_prodotti.json)</div>
+    <div class="footer-report" id="reportLine">Ultimo aggiornamento feed: in attesa…</div>
+    <div class="hint" id="reportHint">(fonte: output/feed_prodotti.json • fallback: output/feed_prodotti.csv)</div>
     <div class="warn" id="warnLine" style="display:none;"></div>
   </main>
 
@@ -197,7 +197,6 @@
     const FEED_JSON_PATH = 'output/feed_prodotti.json';
     const FEED_CSV_PATH  = 'output/feed_prodotti.csv';
     const STATUS_JSON_PATH = 'output/feed_status.json';
-    const LIMIT_TO_TOP_N = 16;
     const LEGACY_CART_KEY = 'pp_cart_v1';
     let CART_KEY = LEGACY_CART_KEY;
 
@@ -545,19 +544,20 @@
         if (!it.cat) continue;
         counts.set(it.cat, (counts.get(it.cat) || 0) + 1);
       }
-      const cats = Array.from(counts.entries()).map(([name, count])=>({ name, count }))
-        .sort((a,b)=> b.count - a.count);
 
-      const shown = cats.slice(0, LIMIT_TO_TOP_N);
+      const cats = Array.from(counts.entries())
+        .map(([name, count])=>({ name, count }))
+        .sort((a,b)=>a.name.localeCompare(b.name, 'it', { sensitivity:'base' }));
+
       grid.innerHTML = '';
-      for (const c of shown){
+      for (const c of cats){
         const a = document.createElement('a');
         a.className = 'cat-tile';
         const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
-        a.href = `categoria_client.html?cat=${encodeURIComponent(c.name)}${extra}`;
+        a.href = `client.html?cat=${encodeURIComponent(c.name)}${extra}`;
         a.innerHTML = `
           <div class="cat-name">
-            <img class="cat-icon" src="img/${esc(slugify(c.name))}.png" alt="" onerror="this.style.display='none'">
+            <img class="cat-icon" src="img/${esc(slugify(c.name))}.png" alt="" onerror="this.onerror=null;this.src='assets/logo.png'">
             <span>${esc(c.name)}</span>
           </div>
           <div class="cat-count">${formatInt(c.count)} articoli</div>
@@ -653,10 +653,9 @@
         const dt = status.generated_at
           ? String(status.generated_at).replace('T', ' ')
           : (status.updated_at || status.updatedAt || '');
-        const cnt = (status.count != null) ? formatInt(status.count) : formatInt(items.length);
-        report.textContent = `Ultimo aggiornamento: articoli in feed = ${cnt} (letto da JSON${dt ? ', ' + dt + ' UTC' : ''})`;
+        report.textContent = `Ultimo aggiornamento feed: ${dt ? dt + ' UTC' : '—'}`;
       } else if (report){
-        report.textContent = 'Ultimo aggiornamento: —';
+        report.textContent = 'Ultimo aggiornamento feed: —';
       }
     }
 
