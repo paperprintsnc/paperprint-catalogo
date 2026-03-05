@@ -14,7 +14,6 @@
     body{margin:0;font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);
       background:linear-gradient(#f7f9ff,var(--bg))}
 
-    /* Header (same structure as catalogo_admin) */
     .topbar{background:var(--card);box-shadow:0 1px 0 rgba(16,24,40,.06)}
     .topbar-inner{max-width:1320px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
     .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.2px;text-decoration:none;color:inherit}
@@ -34,12 +33,9 @@
       box-shadow:0 10px 18px rgba(30,115,255,.18);text-decoration:none;display:inline-flex;align-items:center;gap:10px;line-height:1}
     .btn:active{transform:translateY(1px)}
     .btn-secondary{border:1px solid rgba(16,24,40,.10);background:#fff;color:var(--blue);box-shadow:none}
-
-    /* Cart button + badge */
     .btn-cart{background:#ffd700;color:#111827;box-shadow:0 10px 18px rgba(245,158,11,.10)}
     .cart-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#111827;color:#fff;font-size:12px;font-weight:900}
 
-    /* Cart popover (same vibe as categoria.html) */
     .pp-cart-popover{position:fixed;top:74px;right:18px;width:360px;max-width:calc(100vw - 24px);
       background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:16px;box-shadow:0 18px 60px rgba(2,6,23,.18);
       z-index:10000;overflow:hidden;display:none}
@@ -64,7 +60,6 @@
     .pp-cart-popover-clear{border:1px solid rgba(15,23,42,.16);background:#fff;border-radius:12px;padding:10px 12px;font-weight:900;cursor:pointer}
     .pp-cart-popover-open{text-decoration:none;background:#2563eb;color:#fff;border-radius:12px;padding:10px 12px;font-weight:900}
 
-    /* Main (same as catalogo_admin) */
     .container{max-width:1320px;margin:0 auto;padding:40px 20px 26px}
     .title{display:flex;align-items:center;justify-content:center;gap:14px;margin:38px 0 10px}
     .title svg{width:52px;height:52px;flex:0 0 auto;filter:drop-shadow(0 8px 10px rgba(16,24,40,.08))}
@@ -77,18 +72,16 @@
     .cat-name{color:var(--muted);font-size:16px;font-weight:900;line-height:1.15;white-space:normal;word-break:break-word;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;min-height:34px}
     .cat-icon{width:48px;height:48px;object-fit:contain;flex:0 0 48px;background:transparent}
     .cat-count{margin-top:6px;color:var(--red);font-size:15px;font-weight:900;line-height:1;width:100%;display:flex;align-items:center;justify-content:center}
-    .footer-report{text-align:center;margin-top:70px;font-size:24px;color:#111827;font-weight:800;padding:0 10px}
+    .footer-report{text-align:center;margin-top:70px;font-size:14px;color:#111827;font-weight:600;padding:0 10px}
     .hint{text-align:center;color:var(--muted);margin-top:6px;font-size:13px;padding:0 10px;display:none}
     .warn{text-align:center;color:#b91c1c;font-weight:900;margin-top:10px}
     @media (max-width:1120px){h1{font-size:46px}.cats-grid{grid-template-columns:repeat(2,minmax(280px,1fr))}}
     @media (max-width:560px){h1{font-size:34px}.brand span{font-size:16px}.title svg{width:40px;height:40px}.cats-grid{grid-template-columns:1fr;max-width:520px}.cat-name{font-size:16px}}
 
-    /* Toast */
     .pp-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#111827;color:#fff;
       padding:10px 14px;border-radius:14px;font-weight:900;box-shadow:0 18px 60px rgba(2,6,23,.18);z-index:20000;display:none}
     .pp-toast.show{display:block}
 
-    /* MODALE DATI FISCALI (NUOVO) */
     .pp-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.45);z-index:20000}
     .pp-modal.open{display:flex}
     .pp-modal-box{width:520px;max-width:calc(100vw - 24px);background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:16px;
@@ -119,7 +112,6 @@
           <button class="btn" id="btnSearch" type="button">Cerca Articolo</button>
         </div>
 
-        <!-- NUOVO: Dati fiscali (solo cliente) -->
         <button class="btn btn-secondary" id="btnFiscal" type="button" style="display:none">Dati Fiscali</button>
 
         <button class="btn btn-cart" id="btnCart" type="button" title="Carrello">
@@ -166,7 +158,6 @@
 
   <div class="pp-toast" id="toast" aria-live="polite"></div>
 
-  <!-- MODALE DATI FISCALI (NUOVO) -->
   <div class="pp-modal" id="fiscalModal" role="dialog" aria-hidden="true">
     <div class="pp-modal-box">
       <div class="pp-modal-head">
@@ -197,6 +188,7 @@
     const FEED_JSON_PATH = 'output/feed_prodotti.json';
     const FEED_CSV_PATH  = 'output/feed_prodotti.csv';
     const STATUS_JSON_PATH = 'output/feed_status.json';
+    const CATEGORY_ICON_BASE_URL = 'https://paperprint-feed-automation.github.io/site/img/category-icons';
     const LEGACY_CART_KEY = 'pp_cart_v1';
     let CART_KEY = LEGACY_CART_KEY;
 
@@ -216,7 +208,6 @@
     const popClear = document.getElementById('cartPopClear');
     const popList = document.getElementById('cartPopList');
 
-    // NUOVO: fiscal modal elements
     const btnFiscal = document.getElementById('btnFiscal');
     const fiscalModal = document.getElementById('fiscalModal');
     const fiscalClose = document.getElementById('fiscalClose');
@@ -234,8 +225,6 @@
     let IS_ASSIST = false;
     let EFFECTIVE_CLIENT_ID = '';
     let ASSIST_QS = '';
-
-    // cache profilo corrente
     let ME = null;
 
     function setClientCartKey(userId){
@@ -334,9 +323,7 @@
       updateCartBadge();
     }
 
-    btnCart?.addEventListener('click', ()=>{
-      if (pop.classList.contains('open')) closePopover(); else openPopover();
-    });
+    btnCart?.addEventListener('click', ()=>{ if (pop.classList.contains('open')) closePopover(); else openPopover(); });
     popClose?.addEventListener('click', closePopover);
     popClear?.addEventListener('click', ()=>{ saveCart({items:[]}); renderPopover(); });
     document.addEventListener('click', (e)=>{
@@ -345,18 +332,16 @@
       closePopover();
     });
 
-    // ===== MODALE DATI FISCALI (NUOVO) =====
     function normalizeVat(v){
       let x = String(v || '').trim().replace(/\s+/g,'').toUpperCase();
-      x = x.replace(/^IT/, ''); // se scrivono IT0123...
+      x = x.replace(/^IT/, '');
       return x || '';
     }
     function normalizeCf(v){
       return String(v || '').trim().replace(/\s+/g,'').toUpperCase() || '';
     }
     function openFiscalModal(){
-      if (!fiscalModal) return;
-      if (!ME) return;
+      if (!fiscalModal || !ME) return;
       vatInput.value = ME.vat_number ? String(ME.vat_number) : '';
       cfInput.value = ME.fiscal_code ? String(ME.fiscal_code) : '';
       fiscalModal.classList.add('open');
@@ -369,34 +354,18 @@
     }
     fiscalClose?.addEventListener('click', closeFiscalModal);
     fiscalCancel?.addEventListener('click', closeFiscalModal);
-    fiscalModal?.addEventListener('click', (e)=>{
-      if (e.target === fiscalModal) closeFiscalModal();
-    });
+    fiscalModal?.addEventListener('click', (e)=>{ if (e.target === fiscalModal) closeFiscalModal(); });
 
     fiscalSave?.addEventListener('click', async ()=>{
       try{
-        if (!ME?.id) {
-          showToast('Sessione non valida');
-          return;
-        }
+        if (!ME?.id) { showToast('Sessione non valida'); return; }
         fiscalSave.disabled = true;
-
         const vat = normalizeVat(vatInput.value);
         const cf = normalizeCf(cfInput.value);
-
-        const { error } = await sb
-          .from('profiles')
-          .update({
-            vat_number: vat || null,
-            fiscal_code: cf || null
-          })
-          .eq('id', ME.id);
-
+        const { error } = await sb.from('profiles').update({ vat_number: vat || null, fiscal_code: cf || null }).eq('id', ME.id);
         if (error) throw error;
-
         ME.vat_number = vat || null;
         ME.fiscal_code = cf || null;
-
         showToast('Dati fiscali salvati');
         closeFiscalModal();
       }catch(e){
@@ -407,7 +376,6 @@
       }
     });
 
-    // ===== Feed utils (ported from catalogo_admin) =====
     function slugify(str) {
       return String(str || '')
         .toLowerCase()
@@ -441,11 +409,9 @@
       for (let i = 0; i < line.length; i++) {
         const ch = line[i];
         if (ch === '"') {
-          if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-          else { inQ = !inQ; }
+          if (inQ && line[i + 1] === '"') { cur += '"'; i++; } else { inQ = !inQ; }
         } else if (ch === sep && !inQ) {
-          out.push(cur);
-          cur = '';
+          out.push(cur); cur = '';
         } else {
           cur += ch;
         }
@@ -464,10 +430,7 @@
         const cols = splitCSVLine(lines[i], sep);
         if (!cols.length) continue;
         const row = {};
-        for (let c = 0; c < headers.length; c++) {
-          const k = headers[c] || `col_${c}`;
-          row[k] = (cols[c] ?? '').trim();
-        }
+        for (let c = 0; c < headers.length; c++) row[headers[c] || `col_${c}`] = (cols[c] ?? '').trim();
         rows.push(row);
       }
       return rows;
@@ -502,7 +465,6 @@
       if (!query) return null;
       let best = null;
       let bestScore = -1;
-
       for (const raw of items){
         const it = normalizeItem(raw);
         if (!it.code && !it.name) continue;
@@ -512,10 +474,7 @@
         if (code === query) score = 100;
         else if (code.includes(query) && query.length >= 3) score = 70;
         else if (name.includes(query) && query.length >= 3) score = 40;
-        if (score > bestScore){
-          bestScore = score;
-          best = it;
-        }
+        if (score > bestScore){ bestScore = score; best = it; }
       }
       return bestScore > 0 ? best : null;
     }
@@ -527,10 +486,7 @@
       try{
         const items = await loadItemsFromFeed();
         const found = bestMatch(items, q);
-        if (!found || !found.cat){
-          showToast('Nessun articolo trovato');
-          return;
-        }
+        if (!found || !found.cat){ showToast('Nessun articolo trovato'); return; }
         showToast(`Trovato in: ${found.cat}`);
         setTimeout(()=>{
           const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
@@ -570,11 +526,17 @@
         a.className = 'cat-tile';
         const extra = IS_ASSIST ? `&as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
         const slug = slugify(c.name);
+
+        const remoteSvg = `${CATEGORY_ICON_BASE_URL}/${slug}.svg`;
+        const remotePng = `${CATEGORY_ICON_BASE_URL}/${slug}.png`;
+        const localSvg = `img/${slug}.svg`;
+        const localPng = `img/${slug}.png`;
+
         a.href = `client.html?cat=${encodeURIComponent(c.name)}${extra}`;
         a.innerHTML = `
           <div class="cat-name">
-            <img class="cat-icon" src="img/${esc(slug)}.svg" alt=""
-                 onerror="this.onerror=null;this.src='img/${esc(slug)}.png';this.onerror=function(){this.style.display='none';}">
+            <img class="cat-icon" src="${esc(remoteSvg)}" alt=""
+                 onerror="this.onerror=null;this.src='${esc(remotePng)}';this.onerror=function(){this.onerror=null;this.src='${esc(localSvg)}';this.onerror=function(){this.onerror=null;this.src='${esc(localPng)}';this.onerror=function(){this.style.display='none';};};};">
             <span>${esc(c.name)}</span>
           </div>
           <div class="cat-count">(${formatInt(c.count)} Articoli)</div>
@@ -591,12 +553,8 @@
     async function guardAndInit(){
       const { data: userData } = await sb.auth.getUser();
       const user = userData?.user;
-      if (!user){
-        window.location.href = 'client-login.html';
-        return;
-      }
+      if (!user){ window.location.href = 'client-login.html'; return; }
 
-      // MODIFICATO: includo vat_number e fiscal_code
       const { data: me } = await sb
         .from('profiles')
         .select('id, role, is_active, full_name, email, vat_number, fiscal_code')
@@ -610,21 +568,14 @@
       }
 
       ME = me;
-
       const role = String(me.role || '').toLowerCase();
       IS_ASSIST = (role === 'admin' && !!ASSIST_CLIENT_ID);
 
       if (role === 'client'){
-        if (ASSIST_CLIENT_ID && String(ASSIST_CLIENT_ID) !== String(user.id)){
-          window.location.href = 'client.html';
-          return;
-        }
+        if (ASSIST_CLIENT_ID && String(ASSIST_CLIENT_ID) !== String(user.id)){ window.location.href = 'client.html'; return; }
         EFFECTIVE_CLIENT_ID = user.id;
       } else if (role === 'admin'){
-        if (!ASSIST_CLIENT_ID){
-          window.location.href = 'admin.html';
-          return;
-        }
+        if (!ASSIST_CLIENT_ID){ window.location.href = 'admin.html'; return; }
         EFFECTIVE_CLIENT_ID = ASSIST_CLIENT_ID;
       } else {
         window.location.href = 'index.html';
@@ -632,7 +583,6 @@
       }
 
       ASSIST_QS = IS_ASSIST ? `?as_client=${encodeURIComponent(EFFECTIVE_CLIENT_ID)}` : '';
-
       setClientCartKey(EFFECTIVE_CLIENT_ID);
 
       try{
@@ -643,13 +593,10 @@
       }catch(_){ }
 
       let assistedName = '';
-      if (IS_ASSIST){
-        try{ assistedName = (localStorage.getItem('pp_assist_client_name') || '').trim(); }catch(_){ }
-      }
+      if (IS_ASSIST){ try{ assistedName = (localStorage.getItem('pp_assist_client_name') || '').trim(); }catch(_){ } }
       const displayName = (IS_ASSIST ? (assistedName || 'Cliente') : (me.full_name || me.email || 'Cliente')).trim();
       if (welcomeEl) welcomeEl.textContent = `Benvenuto: ${displayName}`;
 
-      // Mostra pulsante dati fiscali solo al cliente (non in assistenza)
       if (btnFiscal) {
         const showFiscal = (role === 'client');
         btnFiscal.style.display = showFiscal ? '' : 'none';
