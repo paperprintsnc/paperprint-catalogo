@@ -264,17 +264,30 @@
   }
 
   function normalizeQtyForStep(qty, step){
-    const st = (isFinite(step) && step > 0) ? Math.trunc(step) : 1;
-    let v = Number(qty);
-    if (!isFinite(v) || v <= 0) v = st;
-    if (st > 1) v = Math.ceil(v / st) * st;
-    if (v > 99){
-      const maxMul = Math.floor(99 / st);
-      v = maxMul > 0 ? (maxMul * st) : st;
-    }
-    if (v < st) v = st;
-    return v;
+  const st = (isFinite(step) && step > 0) ? Math.trunc(step) : 1;
+  const MAX_QTY = 999;
+
+  let v = Number(qty);
+  if (!isFinite(v) || v <= 0) v = st;
+
+  if (st > 1) v = Math.ceil(v / st) * st;
+
+  if (v > MAX_QTY){
+    const maxMul = Math.floor(MAX_QTY / st);
+    v = maxMul > 0 ? (maxMul * st) : st;
   }
+
+  if (v < st) v = st;
+  return v;
+}
+  
+  
+  
+  
+  
+  
+  
+  
 
   function confirmDialogCart(message){
     return window.ppConfirm ? window.ppConfirm(message || 'Sei sicuro?') : Promise.resolve(true);

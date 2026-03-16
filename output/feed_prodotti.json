@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-16 17:56:13",
+  "generated_at": "2026-03-16 20:57:24",
   "count": 13840,
   "items": [
     {
@@ -32199,7 +32199,7 @@
       "S": "https://asset.pbs-holding.com/asset/S/589/1565589.jpg",
       "L": "https://asset.pbs-holding.com/asset/L/589/1565589.jpg",
       "XL": "https://asset.pbs-holding.com/asset/XL/589/1565589.jpg",
-      "MultipleQty": 20,
+      "MultipleQty": 12,
       "AttributoNome1": "PBS-Attributo variante",
       "AttributoValore1": "M blu",
       "AttributoUnita1": "",
